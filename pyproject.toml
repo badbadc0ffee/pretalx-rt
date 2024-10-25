@@ -1,0 +1,38 @@
+[project]
+name = "pretalx-rt"
+dynamic = ["version"]
+description = "pretalx plugin for RT issue tracker"
+readme = "README.rst"
+license = {text = "Apache Software License"}
+keywords = ["pretalx"]
+authors = [
+  {name = "Florian Moesch", email = "florian@moesch.org"},
+]
+maintainers = [
+  {name = "Florian Moesch", email = "florian@moesch.org"},
+]
+
+dependencies = []
+
+[project.urls]
+homepage = "https://github.com/badbadc0ffee/pretalx-rt"
+repository = "https://github.com/badbadc0ffee/pretalx-rt.git"
+
+[project.entry-points."pretalx.plugin"]
+pretalx_rt = "pretalx_rt:PretalxPluginMeta"
+
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools"]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.dynamic]
+version = {attr = "pretalx_rt.__version__"}
+
+[tool.setuptools.packages.find]
+include = ["pretalx*"]
+
+[tool.check-manifest]
+ignore = [".*"]
