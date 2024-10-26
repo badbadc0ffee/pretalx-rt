@@ -9,7 +9,7 @@ def pretalx_rt_settings(sender, request, **kwargs):
         return []
     return [
         {
-            "label": "pretalx RT plugin",
+            "label": "RT",
             "url": reverse(
                 "plugins:pretalx_rt:settings",
                 kwargs={"event": request.event.slug},

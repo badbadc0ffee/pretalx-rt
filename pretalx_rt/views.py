@@ -19,8 +19,7 @@ class RtSettingsView(PermissionRequired, FormView):
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
-        kwargs["event"] = self.request.event
-        return kwargs
+        return {"obj": self.request.event, "attribute_name": "settings", **kwargs}
 
     def form_valid(self, form):
         form.save()
