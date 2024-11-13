@@ -1,16 +1,28 @@
 from django.dispatch import receiver
 from django.urls import reverse
 from django.utils.timezone import now
+from pretalx.mail.signals import queuedmail_pre_send
+from pretalx.orga.signals import nav_event_settings
+from pretalx.submission.signals import submission_state_change
 from rt.rest2 import Attachment, Rt
 
-from pretalx.mail.models import QueuedMail
-from pretalx.mail.signals import mail_badge, mail_details, queuedmail_pre_send
-from pretalx.orga.signals import nav_event_settings
-from pretalx.submission.signals import (
-    submission_details,
-    submission_link,
-    submission_state_change,
-)
+from pretalx.common.signals import EventPluginSignal
+try:
+    from pretalx.mail.signals import mail_badge
+except ImportError:
+    mail_badge = EventPluginSignal()
+try:
+    from pretalx.mail.signals import mail_details
+except ImportError:
+    mail_details = EventPluginSignal()
+try:
+    from pretalx.submission.signals import submission_details
+except ImportError:
+    submission_details = EventPluginSignal()
+try:
+    from pretalx.submission.signals import submission_link
+except ImportError:
+    submission_link = EventPluginSignal()
 
 from .models import Ticket
 
@@ -32,7 +44,7 @@ def pretalx_rt_settings(sender, request, **kwargs):
 
 
 @receiver(mail_badge)
-def pretalx_rt_mail_badge(sender, request, mail: QueuedMail, **kwargs):
+def pretalx_rt_mail_badge(sender, request, mail, **kwargs):
     result = ""
     for ticket in mail.rt_tickets.all():
         result += '<i class="fa fa-check-square-o" title="Request Tracker"></i> '
