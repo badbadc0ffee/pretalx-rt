@@ -16,6 +16,15 @@ dependencies = [
   "rt~=3.2.0",
 ]
 
+[project.optional-dependencies]
+dev = [
+  "black",
+  "build",
+  "check-manifest",
+  "flake8",
+  "isort",
+]
+
 [project.urls]
 homepage = "https://github.com/badbadc0ffee/pretalx-rt"
 repository = "https://github.com/badbadc0ffee/pretalx-rt.git"
