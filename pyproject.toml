@@ -12,7 +12,9 @@ maintainers = [
   {name = "Florian Moesch", email = "florian@moesch.org"},
 ]
 
-dependencies = []
+dependencies = [
+  "rt~=3.2.0",
+]
 
 [project.urls]
 homepage = "https://github.com/badbadc0ffee/pretalx-rt"

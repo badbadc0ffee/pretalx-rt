@@ -3,13 +3,13 @@ from django.utils.translation import gettext_lazy as _
 from django.views.generic import FormView
 from pretalx.common.views.mixins import PermissionRequired
 
-from .forms import RtSettingsForm
+from .forms import SettingsForm
 
 
-class RtSettingsView(PermissionRequired, FormView):
+class SettingsView(PermissionRequired, FormView):
     permission_required = "orga.change_settings"
     template_name = "pretalx_rt/settings.html"
-    form_class = RtSettingsForm
+    form_class = SettingsForm
 
     def get_success_url(self):
         return self.request.path
@@ -19,8 +19,7 @@ class RtSettingsView(PermissionRequired, FormView):
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
-        kwargs["event"] = self.request.event
-        return kwargs
+        return {"obj": self.request.event, "attribute_name": "settings", **kwargs}
 
     def form_valid(self, form):
         form.save()
