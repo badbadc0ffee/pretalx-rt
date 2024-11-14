@@ -3,7 +3,11 @@ import logging
 from django.dispatch import receiver
 from django.urls import reverse
 from django.utils.timezone import now
-from pretalx.common.signals import minimum_interval, periodic_task, register_data_exporters
+from pretalx.common.signals import (
+    minimum_interval,
+    periodic_task,
+    register_data_exporters,
+)
 from pretalx.mail.signals import queuedmail_pre_send
 from pretalx.orga.signals import nav_event_settings
 from pretalx.person.models import User
@@ -73,6 +77,7 @@ def pretalx_rt_periodic_sync(sender, **kwargs):
 def pretalx_rt_data_exporter(sender, **kwargs):
     logger.info("exporter registration")
     from .exporter import Exporter
+
     return Exporter
 
 

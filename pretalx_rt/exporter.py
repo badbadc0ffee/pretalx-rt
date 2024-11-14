@@ -18,7 +18,14 @@ class Exporter(CSVExporterMixin, BaseExporter):
         return f"{self.event.slug}-rt.csv"
 
     def get_data(self, **kwargs):
-        field_names = ["rt ticket", "rt subject", "rt status", "rt queue", "pretalx code", "pretalx title"]
+        field_names = [
+            "rt ticket",
+            "rt subject",
+            "rt status",
+            "rt queue",
+            "pretalx code",
+            "pretalx title",
+        ]
         data = []
         qs = Ticket.objects.all()
         for ticket in qs:
