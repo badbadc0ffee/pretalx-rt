@@ -14,13 +14,13 @@ on:
 
 jobs:
   isort:
-    name: isort
+    name: Include order checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - name: install gettext
         run: sudo apt install gettext
-      - name: Set up Python 🐍
+      - name: Set up Python
         uses: actions/setup-python@v1
         with:
           python-version-file: ".github/workflows/python-version.txt"
@@ -30,13 +30,13 @@ jobs:
       - name: Run isort
         run: isort -c .
   flake:
-    name: flake8
+    name: Style guide checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - name: install gettext
         run: sudo apt install gettext
-      - name: Set up Python 🐍
+      - name: Set up Python
         uses: actions/setup-python@v1
         with:
           python-version-file: ".github/workflows/python-version.txt"
@@ -47,13 +47,13 @@ jobs:
         run: flake8 .
         working-directory: .
   black:
-    name: black
+    name: Code formatter checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - name: install gettext
         run: sudo apt install gettext
-      - name: Set up Python 🐍
+      - name: Set up Python
         uses: actions/setup-python@v1
         with:
           python-version-file: ".github/workflows/python-version.txt"
@@ -64,13 +64,13 @@ jobs:
         run: black --check .
         working-directory: .
   djhtml:
-    name: djhtml
+    name: HTML checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - name: install gettext
         run: sudo apt install gettext
-      - name: Set up Python 🐍
+      - name: Set up Python
         uses: actions/setup-python@v1
         with:
           python-version-file: ".github/workflows/python-version.txt"
@@ -81,11 +81,11 @@ jobs:
         run: find -name "*.html" | xargs djhtml -c
         working-directory: .
   packaging:
-    name: packaging
+    name: Packaging
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Set up Python 🐍
+      - name: Set up Python
         uses: actions/setup-python@v1
         with:
           python-version-file: ".github/workflows/python-version.txt"

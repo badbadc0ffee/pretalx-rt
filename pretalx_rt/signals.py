@@ -9,32 +9,37 @@ from pretalx.orga.signals import nav_event_settings
 from pretalx.person.models import User
 from pretalx.submission.signals import submission_state_change
 from rt.rest2 import Attachment, Rt
-from rt.exceptions import NotFoundError
 
 from .models import Ticket
 
 logger = logging.getLogger(__name__)
 
-from pretalx.common.signals import EventPluginSignal
-
 try:
     from pretalx.mail.signals import mail_badge
 except ImportError:
+    from pretalx.common.signals import EventPluginSignal
+
     mail_badge = EventPluginSignal()
     logger.warn("'mail_badge' is not available in this pretalx version.")
 try:
     from pretalx.mail.signals import mail_details
 except ImportError:
+    from pretalx.common.signals import EventPluginSignal
+
     mail_details = EventPluginSignal()
     logger.warn("'mail_details' is not available in this pretalx version.")
 try:
     from pretalx.submission.signals import submission_details
 except ImportError:
+    from pretalx.common.signals import EventPluginSignal
+
     submission_details = EventPluginSignal()
     logger.warn("'submission_details' is not available in this pretalx version.")
 try:
     from pretalx.submission.signals import submission_link
 except ImportError:
+    from pretalx.common.signals import EventPluginSignal
+
     submission_link = EventPluginSignal()
     logger.warn("'submission_link' is not available in this pretalx version.")
 
