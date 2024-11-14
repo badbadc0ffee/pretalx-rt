@@ -63,7 +63,7 @@ def pretalx_rt_settings(sender, request, **kwargs):
 @receiver(periodic_task)
 @minimum_interval(minutes_after_success=5)
 def pretalx_rt_periodic_sync(sender, **kwargs):
-    logger.info("pretalx_rt_periodic_task")
+    logger.info("periodic sync")
     for ticket in Ticket.objects.all():
         if ticket.submission is not None:
             pretalx_rt_sync(ticket.submission.event, ticket)
@@ -132,6 +132,7 @@ def pretalx_rt_submission_state_change(sender, submission, old_state, user, **kw
 @receiver(queuedmail_pre_send)
 def pretalx_rt_queuedmail_pre_send(sender, mail, **kwargs):
     logger.info("queued mail pre send hook")
+    event = sender
     ticket = None
     if mail.submissions.count() == 1:
         submission = mail.submissions.first()
@@ -139,10 +140,10 @@ def pretalx_rt_queuedmail_pre_send(sender, mail, **kwargs):
         if hasattr(submission, "rt_ticket"):
             ticket = submission.rt_ticket
         if ticket is None:
-            ticket = create_rt_submission_ticket(sender, submission)
+            ticket = create_rt_submission_ticket(event, submission)
     if ticket is None:
-        ticket = create_rt_mail_ticket(sender, mail)
-    create_rt_mail(sender, ticket, mail)
+        ticket = create_rt_mail_ticket(event, mail)
+    create_rt_mail(event, ticket, mail)
 
 
 def create_rt_submission_ticket(event, submission):
@@ -170,8 +171,7 @@ def create_rt_submission_ticket(event, submission):
     )
     ticket = Ticket(id)
     ticket.submission = submission
-    ticket.save()
-    pretalx_rt_sync(ticket)
+    pretalx_rt_sync(event, ticket)
     return ticket
 
 
@@ -193,7 +193,7 @@ def create_rt_mail_ticket(event, mail):
         Owner="Nobody",
     )
     ticket = Ticket(id)
-    pretalx_rt_sync(ticket)
+    pretalx_rt_sync(event, ticket)
     return ticket
 
 
