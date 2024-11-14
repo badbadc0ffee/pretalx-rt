@@ -115,9 +115,7 @@ def pretalx_rt_submission_link(sender, request, submission, **kwargs):
 
 @receiver(submission_state_change)
 def pretalx_rt_submission_state_change(sender, submission, old_state, user, **kwargs):
-    logger.info(
-        f"submission stat change hook: {submission.code} changed state to {submission.state}"
-    )
+    logger.info(f"submission state change hook: {submission.code} > {submission.state}")
     ticket = None
     if hasattr(submission, "rt_ticket"):
         ticket = submission.rt_ticket
@@ -154,7 +152,7 @@ def create_rt_submission_ticket(event, submission):
     id = rt.create_ticket(
         queue=queue,
         subject=subject,
-        content="New pretalx submission.",
+        content=f"New pretalx submission {submission.code}.",
         Requestor=",".join(
             f"{user.name} <{user.email}>" for user in submission.speakers.all()
         ),
