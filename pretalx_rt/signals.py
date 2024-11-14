@@ -1,18 +1,47 @@
+import logging
+
 from django.dispatch import receiver
 from django.urls import reverse
 from django.utils.timezone import now
+from pretalx.common.signals import minimum_interval, periodic_task
+from pretalx.mail.signals import queuedmail_pre_send
+from pretalx.orga.signals import nav_event_settings
+from pretalx.person.models import User
+from pretalx.submission.signals import submission_state_change
 from rt.rest2 import Attachment, Rt
 
-from pretalx.mail.models import QueuedMail
-from pretalx.mail.signals import mail_badge, mail_details, queuedmail_pre_send
-from pretalx.orga.signals import nav_event_settings
-from pretalx.submission.signals import (
-    submission_details,
-    submission_link,
-    submission_state_change,
-)
-
 from .models import Ticket
+
+logger = logging.getLogger(__name__)
+
+try:
+    from pretalx.mail.signals import mail_badge
+except ImportError:
+    from pretalx.common.signals import EventPluginSignal
+
+    mail_badge = EventPluginSignal()
+    logger.warn("'mail_badge' is not available in this pretalx version.")
+try:
+    from pretalx.mail.signals import mail_details
+except ImportError:
+    from pretalx.common.signals import EventPluginSignal
+
+    mail_details = EventPluginSignal()
+    logger.warn("'mail_details' is not available in this pretalx version.")
+try:
+    from pretalx.submission.signals import submission_details
+except ImportError:
+    from pretalx.common.signals import EventPluginSignal
+
+    submission_details = EventPluginSignal()
+    logger.warn("'submission_details' is not available in this pretalx version.")
+try:
+    from pretalx.submission.signals import submission_link
+except ImportError:
+    from pretalx.common.signals import EventPluginSignal
+
+    submission_link = EventPluginSignal()
+    logger.warn("'submission_link' is not available in this pretalx version.")
 
 
 @receiver(nav_event_settings)
@@ -31,8 +60,17 @@ def pretalx_rt_settings(sender, request, **kwargs):
     ]
 
 
+@receiver(periodic_task)
+@minimum_interval(minutes_after_success=5)
+def pretalx_rt_periodic_sync(sender, **kwargs):
+    logger.info("pretalx_rt_periodic_task")
+    for ticket in Ticket.objects.all():
+        if ticket.submission is not None:
+            pretalx_rt_sync(ticket.submission.event, ticket)
+
+
 @receiver(mail_badge)
-def pretalx_rt_mail_badge(sender, request, mail: QueuedMail, **kwargs):
+def pretalx_rt_mail_badge(sender, request, mail, **kwargs):
     result = ""
     for ticket in mail.rt_tickets.all():
         result += '<i class="fa fa-check-square-o" title="Request Tracker"></i> '
@@ -82,16 +120,18 @@ def pretalx_rt_submission_link(sender, request, submission, **kwargs):
 
 @receiver(submission_state_change)
 def pretalx_rt_submission_state_change(sender, submission, old_state, user, **kwargs):
+    logger.info(f"submission state change hook: {submission.code} > {submission.state}")
     ticket = None
     if hasattr(submission, "rt_ticket"):
         ticket = submission.rt_ticket
     if ticket is None:
         ticket = create_rt_submission_ticket(sender, submission)
-    update_rt_pretalx_state(sender, submission, ticket)
+    pretalx_rt_sync(sender, ticket)
 
 
 @receiver(queuedmail_pre_send)
 def pretalx_rt_queuedmail_pre_send(sender, mail, **kwargs):
+    logger.info("queued mail pre send hook")
     ticket = None
     if mail.submissions.count() == 1:
         submission = mail.submissions.first()
@@ -106,6 +146,7 @@ def pretalx_rt_queuedmail_pre_send(sender, mail, **kwargs):
 
 
 def create_rt_submission_ticket(event, submission):
+    logger.info(f"create RT ticket for submission {submission.code}")
     rt = Rt(
         url=event.settings.rt_url + "REST/2.0/",
         token=event.settings.rt_rest_api_key,
@@ -116,7 +157,7 @@ def create_rt_submission_ticket(event, submission):
     id = rt.create_ticket(
         queue=queue,
         subject=subject,
-        content="New pretalx submission.",
+        content=f"New pretalx submission {submission.code}.",
         Requestor=",".join(
             f"{user.name} <{user.email}>" for user in submission.speakers.all()
         ),
@@ -128,15 +169,14 @@ def create_rt_submission_ticket(event, submission):
         },
     )
     ticket = Ticket(id)
-    ticket.queue = queue
-    ticket.subject = subject
-    ticket.status = status
     ticket.submission = submission
     ticket.save()
+    pretalx_rt_sync(ticket)
     return ticket
 
 
 def create_rt_mail_ticket(event, mail):
+    logger.info("create RT ticket not related to a specific submission")
     rt = Rt(
         url=event.settings.rt_url + "REST/2.0/",
         token=event.settings.rt_rest_api_key,
@@ -153,21 +193,18 @@ def create_rt_mail_ticket(event, mail):
         Owner="Nobody",
     )
     ticket = Ticket(id)
-    ticket.queue = queue
-    ticket.subject = subject
-    ticket.status = status
-    ticket.save()
+    pretalx_rt_sync(ticket)
     return ticket
 
 
 def create_rt_mail(event, ticket, mail):
+    logger.info(f"send mail via RT ticket {ticket.id}")
     rt = Rt(
         url=event.settings.rt_url + "REST/2.0/",
         token=event.settings.rt_rest_api_key,
     )
     old_ticket = rt.get_ticket(ticket.id)
     try:
-        ##
         rt.edit_ticket(
             ticket.id,
             Requestor=",".join(user.email for user in mail.to_users.all()),
@@ -201,15 +238,30 @@ def create_rt_mail(event, ticket, mail):
         )
 
 
-def update_rt_pretalx_state(event, submission, ticket):
+def pretalx_rt_sync(event, ticket):
+    logger.info(f"update RT ticket {ticket.id}")
     rt = Rt(
         url=event.settings.rt_url + "REST/2.0/",
         token=event.settings.rt_rest_api_key,
     )
-    rt.edit_ticket(
-        ticket.id,
-        CustomFields={
-            event.settings.rt_custom_field_id: submission.code,
-            event.settings.rt_custom_field_state: submission.state,
-        },
-    )
+    if ticket.submission is not None:
+        rt.edit_ticket(
+            ticket.id,
+            Subject=ticket.submission.title,
+            Requestor=[
+                f"{user.name} <{user.email}>"
+                for user in ticket.submission.speakers.all()
+            ],
+            CustomFields={
+                event.settings.rt_custom_field_id: ticket.submission.code,
+                event.settings.rt_custom_field_state: ticket.submission.state,
+            },
+        )
+    rt_ticket = rt.get_ticket(ticket.id)
+    ticket.subject = rt_ticket["Subject"]
+    ticket.status = rt_ticket["Status"]
+    ticket.queue = rt_ticket["Queue"]["Name"]
+    for requestor in rt_ticket["Requestor"]:
+        for user in list(User.objects.filter(email=requestor["id"])):
+            ticket.users.add(user.id)
+    ticket.save()
