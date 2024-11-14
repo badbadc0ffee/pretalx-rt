@@ -17,11 +17,11 @@ jobs:
     name: Include order checks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: install gettext
         run: sudo apt install gettext
       - name: Set up Python
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v5
         with:
           python-version-file: ".github/workflows/python-version.txt"
           cache: "pip"
@@ -29,15 +29,16 @@ jobs:
         run: pip3 install isort
       - name: Run isort
         run: isort -c .
+        working-directory: ./pretalx_rt
   flake:
     name: Style guide checks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: install gettext
         run: sudo apt install gettext
       - name: Set up Python
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v5
         with:
           python-version-file: ".github/workflows/python-version.txt"
           cache: "pip"
@@ -50,11 +51,11 @@ jobs:
     name: Code formatter checks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: install gettext
         run: sudo apt install gettext
       - name: Set up Python
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v5
         with:
           python-version-file: ".github/workflows/python-version.txt"
           cache: "pip"
@@ -62,16 +63,16 @@ jobs:
         run: pip3 install black
       - name: Run black
         run: black --check .
-        working-directory: .
+        working-directory: ./pretalx_rt
   djhtml:
     name: HTML checks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: install gettext
         run: sudo apt install gettext
       - name: Set up Python
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v5
         with:
           python-version-file: ".github/workflows/python-version.txt"
           cache: "pip"
@@ -84,9 +85,9 @@ jobs:
     name: Packaging
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up Python
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v5
         with:
           python-version-file: ".github/workflows/python-version.txt"
           cache: "pip"
