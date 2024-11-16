@@ -46,6 +46,7 @@ class SettingsForm(HierarkeyForm):
         label=_("Send HTML mails"),
         help_text=_("Let RT send out mails in HTML markup."),
         initial=True,
+        required=False,
     )
 
     def __init__(self, *args, **kwargs):
