@@ -38,14 +38,18 @@ except ImportError:
     from pretalx.common.signals import EventPluginSignal
 
     html_below_submission_form = EventPluginSignal()
-    logger.warn("'html_below_submission_form' is not available in this pretalx version.")
+    logger.warn(
+        "'html_below_submission_form' is not available in this pretalx version."
+    )
 try:
     from pretalx.submission.signals import html_below_submission_link
 except ImportError:
     from pretalx.common.signals import EventPluginSignal
 
     html_below_submission_link = EventPluginSignal()
-    logger.warn("'html_below_submission_link' is not available in this pretalx version.")
+    logger.warn(
+        "'html_below_submission_link' is not available in this pretalx version."
+    )
 
 
 @receiver(nav_event_settings)
