@@ -19,33 +19,37 @@ from .models import Ticket
 logger = logging.getLogger(__name__)
 
 try:
-    from pretalx.mail.signals import mail_badge
+    from pretalx.mail.signals import html_after_mail_badge
 except ImportError:
     from pretalx.common.signals import EventPluginSignal
 
-    mail_badge = EventPluginSignal()
-    logger.warn("'mail_badge' is not available in this pretalx version.")
+    html_after_mail_badge = EventPluginSignal()
+    logger.warn("'html_after_mail_badge' is not available in this pretalx version.")
 try:
-    from pretalx.mail.signals import mail_details
+    from pretalx.mail.signals import html_below_mail_subject
 except ImportError:
     from pretalx.common.signals import EventPluginSignal
 
-    mail_details = EventPluginSignal()
-    logger.warn("'mail_details' is not available in this pretalx version.")
+    html_below_mail_subject = EventPluginSignal()
+    logger.warn("'html_below_mail_subject' is not available in this pretalx version.")
 try:
-    from pretalx.submission.signals import submission_details
+    from pretalx.submission.signals import html_below_submission_form
 except ImportError:
     from pretalx.common.signals import EventPluginSignal
 
-    submission_details = EventPluginSignal()
-    logger.warn("'submission_details' is not available in this pretalx version.")
+    html_below_submission_form = EventPluginSignal()
+    logger.warn(
+        "'html_below_submission_form' is not available in this pretalx version."
+    )
 try:
-    from pretalx.submission.signals import submission_link
+    from pretalx.submission.signals import html_below_submission_link
 except ImportError:
     from pretalx.common.signals import EventPluginSignal
 
-    submission_link = EventPluginSignal()
-    logger.warn("'submission_link' is not available in this pretalx version.")
+    html_below_submission_link = EventPluginSignal()
+    logger.warn(
+        "'html_below_submission_link' is not available in this pretalx version."
+    )
 
 
 @receiver(nav_event_settings)
@@ -81,8 +85,8 @@ def pretalx_rt_data_exporter(sender, **kwargs):
     return Exporter
 
 
-@receiver(mail_badge)
-def pretalx_rt_mail_badge(sender, request, mail, **kwargs):
+@receiver(html_after_mail_badge)
+def pretalx_rt_html_after_mail_badge(sender, request, mail, **kwargs):
     result = ""
     for ticket in mail.rt_tickets.all():
         result += '<i class="fa fa-check-square-o" title="Request Tracker"></i> '
@@ -90,8 +94,8 @@ def pretalx_rt_mail_badge(sender, request, mail, **kwargs):
     return result
 
 
-@receiver(mail_details)
-def pretalx_rt_mail_details(sender, request, mail, **kwargs):
+@receiver(html_below_mail_subject)
+def pretalx_rt_html_below_mail_subject(sender, request, mail, **kwargs):
     result = ""
     for ticket in mail.rt_tickets.all():
         result += '<i class="fa fa-check-square-o" title="Request Tracker"></i> '
@@ -100,8 +104,8 @@ def pretalx_rt_mail_details(sender, request, mail, **kwargs):
     return result
 
 
-@receiver(submission_details)
-def pretalx_rt_submission_details(sender, request, submission, **kwargs):
+@receiver(html_below_submission_form)
+def pretalx_rt_html_below_submission_form(sender, request, submission, **kwargs):
     result = ""
     if hasattr(submission, "rt_ticket"):
         result += '<div class="form-group row">'
@@ -120,8 +124,8 @@ def pretalx_rt_submission_details(sender, request, submission, **kwargs):
     return result
 
 
-@receiver(submission_link)
-def pretalx_rt_submission_link(sender, request, submission, **kwargs):
+@receiver(html_below_submission_link)
+def pretalx_rt_html_below_submission_link(sender, request, submission, **kwargs):
     result = ""
     if hasattr(submission, "rt_ticket"):
         result += f'<a href="{sender.settings.rt_url}Ticket/Display.html?id={submission.rt_ticket.id}" class="dropdown-item" role="menuitem" tabindex="-1">'
