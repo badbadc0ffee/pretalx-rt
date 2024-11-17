@@ -1,4 +1,5 @@
 import logging
+from datetime import timedelta
 
 from django.dispatch import receiver
 from django.urls import reverse
@@ -74,7 +75,15 @@ def pretalx_rt_periodic_sync(sender, **kwargs):
     logger.info("periodic sync")
     for ticket in Ticket.objects.all():
         if ticket.submission is not None:
-            pretalx_rt_sync(ticket.submission.event, ticket)
+            event = ticket.submission.event
+            if "pretalx_rt" in event.plugin_list and (
+                ticket.sync_timestamp is None
+                or (
+                    now() - ticket.sync_timestamp
+                    < timedelta(minutes=int(event.settings.rt_sync_interval))
+                )
+            ):
+                pretalx_rt_sync(event, ticket)
 
 
 @receiver(register_data_exporters, dispatch_uid="exporter_rt")
@@ -280,4 +289,5 @@ def pretalx_rt_sync(event, ticket):
     for requestor in rt_ticket["Requestor"]:
         for user in list(User.objects.filter(email=requestor["id"])):
             ticket.users.add(user.id)
+    ticket.sync_timestamp = now()
     ticket.save()

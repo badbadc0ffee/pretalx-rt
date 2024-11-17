@@ -49,6 +49,12 @@ class SettingsForm(HierarkeyForm):
         required=False,
     )
 
+    rt_sync_interval = forms.IntegerField(
+        label=_("Sync interval"),
+        help_text=_("Minimum interval in minutes to sync RT tickets."),
+        initial=30,
+    )
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         event = kwargs.get("obj")

@@ -37,3 +37,6 @@ class Ticket(models.Model):
         on_delete=models.SET_NULL,
         null=True,
     )
+    sync_timestamp = models.DateTimeField(
+        auto_now_add=True,
+    )
