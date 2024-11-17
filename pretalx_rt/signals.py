@@ -80,7 +80,7 @@ def pretalx_rt_periodic_sync(sender, **kwargs):
                 ticket.sync_timestamp is None
                 or (
                     now() - ticket.sync_timestamp
-                    < timedelta(minutes=int(event.settings.rt_sync_interval))
+                    > timedelta(minutes=int(event.settings.rt_sync_interval))
                 )
             ):
                 pretalx_rt_sync(event, ticket)
