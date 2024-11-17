@@ -74,7 +74,9 @@ def pretalx_rt_periodic_sync(sender, **kwargs):
     logger.info("periodic sync")
     for ticket in Ticket.objects.all():
         if ticket.submission is not None:
-            pretalx_rt_sync(ticket.submission.event, ticket)
+            event = ticket.submission.event
+            if "pretalx_rt" in event.plugin_list:
+                pretalx_rt_sync(event, ticket)
 
 
 @receiver(register_data_exporters, dispatch_uid="exporter_rt")
