@@ -73,17 +73,21 @@ def pretalx_rt_settings(sender, request, **kwargs):
 @minimum_interval(minutes_after_success=5)
 def pretalx_rt_periodic_sync(sender, **kwargs):
     logger.info("periodic sync")
-    for ticket in Ticket.objects.all():
-        if ticket.submission is not None:
-            event = ticket.submission.event
-            if "pretalx_rt" in event.plugin_list and (
-                ticket.sync_timestamp is None
-                or (
-                    now() - ticket.sync_timestamp
-                    > timedelta(minutes=int(event.settings.rt_sync_interval))
-                )
-            ):
-                pretalx_rt_sync(event, ticket)
+    start = now()
+    for ticket in Ticket.objects.exclude(submission__isnull=True).order_by(
+        "sync_timestamp"
+    ):
+        if now() - start > timedelta(minutes=1):
+            return
+        event = ticket.submission.event
+        if "pretalx_rt" in event.plugin_list and (
+            ticket.sync_timestamp is None
+            or (
+                now() - ticket.sync_timestamp
+                > timedelta(minutes=int(event.settings.rt_sync_interval))
+            )
+        ):
+            pretalx_rt_sync(event, ticket)
 
 
 @receiver(register_data_exporters, dispatch_uid="exporter_rt")
