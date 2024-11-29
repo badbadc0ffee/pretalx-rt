@@ -1,13 +1,16 @@
 import logging
 from datetime import timedelta
 
+from django.db.models.signals import pre_save
 from django.dispatch import receiver
 from django.utils.timezone import now
+from rt.rest2 import Attachment, Rt
+
 from pretalx.common.signals import minimum_interval, periodic_task
 from pretalx.mail.signals import queuedmail_pre_send
 from pretalx.person.models import User
+from pretalx.submission.models import Submission
 from pretalx.submission.signals import submission_state_change
-from rt.rest2 import Attachment, Rt
 
 from .models import Ticket
 
@@ -16,8 +19,8 @@ logger = logging.getLogger(__name__)
 
 @receiver(periodic_task)
 @minimum_interval(minutes_after_success=5)
-def pretalx_rt_periodic_sync(sender, **kwargs):
-    logger.info("periodic sync")
+def pretalx_rt_periodic_pull(sender, **kwargs):
+    logger.info("periodic pull")
     start = now()
     for ticket in Ticket.objects.exclude(submission__isnull=True).order_by(
         "sync_timestamp"
@@ -32,16 +35,13 @@ def pretalx_rt_periodic_sync(sender, **kwargs):
                 > timedelta(minutes=int(event.settings.rt_sync_interval))
             )
         ):
-            pretalx_rt_sync(event, ticket)
+            pretalx_rt_pull(event, ticket)
 
 
 @receiver(submission_state_change)
 def pretalx_rt_submission_state_change(sender, submission, old_state, user, **kwargs):
     logger.info(f"submission state change hook: {submission.code} > {submission.state}")
-    ticket = None
-    if hasattr(submission, "rt_ticket"):
-        ticket = submission.rt_ticket
-    if ticket is None:
+    if ticket := getattr(submission, "rt_ticket", None) is None:
         ticket = create_rt_submission_ticket(sender, submission)
     pretalx_rt_push(sender, ticket)
 
@@ -49,18 +49,26 @@ def pretalx_rt_submission_state_change(sender, submission, old_state, user, **kw
 @receiver(queuedmail_pre_send)
 def pretalx_rt_queuedmail_pre_send(sender, mail, **kwargs):
     logger.info("queued mail pre send hook")
-    event = sender
     ticket = None
     if mail.submissions.count() == 1:
         submission = mail.submissions.first()
-        ticket = None
-        if hasattr(submission, "rt_ticket"):
-            ticket = submission.rt_ticket
-        if ticket is None:
-            ticket = create_rt_submission_ticket(event, submission)
+        if ticket := getattr(submission, "rt_ticket", None) is None:
+            ticket = create_rt_submission_ticket(sender, submission)
     if ticket is None:
-        ticket = create_rt_mail_ticket(event, mail)
-    create_rt_mail(event, ticket, mail)
+        ticket = create_rt_mail_ticket(sender, mail)
+    create_rt_mail(sender, ticket, mail)
+
+
+@receiver(pre_save, sender=Submission)
+def pretalx_rt_submission_pre_save(sender, instance, **kwargs):
+    if instance.pk:
+        if "pretalx_rt" in instance.event.plugin_list and (
+            ticket := getattr(instance, "rt_ticket", None)
+        ):
+            pretalx_rt_push(instance.event, ticket)
+
+
+# ------------------------------
 
 
 def create_rt_submission_ticket(event, submission):
@@ -75,10 +83,7 @@ def create_rt_submission_ticket(event, submission):
     id = rt.create_ticket(
         queue=queue,
         subject=subject,
-        content=f"New pretalx submission {submission.code}.",
-        Requestor=",".join(
-            f"{user.name} <{user.email}>" for user in submission.speakers.all()
-        ),
+        Requestor=requestors(submission.speakers.all()),
         Status=status,
         Owner="Nobody",
         CustomFields={
@@ -86,9 +91,8 @@ def create_rt_submission_ticket(event, submission):
             event.settings.rt_custom_field_state: submission.state,
         },
     )
-    ticket = Ticket(id)
-    ticket.submission = submission
-    pretalx_rt_push(event, ticket)
+    ticket = Ticket(id, submission=submission)
+    pretalx_rt_pull(event, ticket)
     return ticket
 
 
@@ -104,13 +108,13 @@ def create_rt_mail_ticket(event, mail):
     id = rt.create_ticket(
         queue=queue,
         subject=subject,
-        Requestor=",".join(user.email for user in mail.to_users.all()),
+        Requestor=requestors(mail.to_users.all()),
         Subject=mail.subject,
         Status=status,
         Owner="Nobody",
     )
     ticket = Ticket(id)
-    pretalx_rt_push(event, ticket)
+    pretalx_rt_pull(event, ticket)
     return ticket
 
 
@@ -124,7 +128,7 @@ def create_rt_mail(event, ticket, mail):
     try:
         rt.edit_ticket(
             ticket.id,
-            Requestor=",".join(user.email for user in mail.to_users.all()),
+            Requestor=requestors(mail.to_users.all()),
             Subject=mail.subject,
         )
         attachments = []
@@ -155,12 +159,6 @@ def create_rt_mail(event, ticket, mail):
         )
 
 
-def pretalx_rt_sync(event, ticket):
-    logger.info(f"update RT ticket {ticket.id}")
-    pretalx_rt_push(event, ticket)
-    pretalx_rt_pull(event, ticket)
-
-
 def pretalx_rt_push(event, ticket):
     logger.info(f"push RT ticket {ticket.id}")
     rt = Rt(
@@ -171,10 +169,7 @@ def pretalx_rt_push(event, ticket):
         rt.edit_ticket(
             ticket.id,
             Subject=ticket.submission.title,
-            Requestor=[
-                f"{user.name} <{user.email}>"
-                for user in ticket.submission.speakers.all()
-            ],
+            Requestor=requestors(ticket.submission.speakers.all()),
             CustomFields={
                 event.settings.rt_custom_field_id: ticket.submission.code,
                 event.settings.rt_custom_field_state: ticket.submission.state,
@@ -197,3 +192,10 @@ def pretalx_rt_pull(event, ticket):
             ticket.users.add(user.id)
     ticket.sync_timestamp = now()
     ticket.save()
+
+
+def requestors(users):
+    return [f"{user.name.replace('@', '(at)')} <{user.email}>" for user in users]
+    # return ",".join(
+    #     f"{user.name.replace('@', '(at)')} <{user.email}>" for user in users
+    # )
