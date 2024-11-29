@@ -2,15 +2,9 @@ import logging
 from datetime import timedelta
 
 from django.dispatch import receiver
-from django.urls import reverse
 from django.utils.timezone import now
-from pretalx.common.signals import (
-    minimum_interval,
-    periodic_task,
-    register_data_exporters,
-)
+from pretalx.common.signals import minimum_interval, periodic_task
 from pretalx.mail.signals import queuedmail_pre_send
-from pretalx.orga.signals import nav_event_settings
 from pretalx.person.models import User
 from pretalx.submission.signals import submission_state_change
 from rt.rest2 import Attachment, Rt
@@ -18,55 +12,6 @@ from rt.rest2 import Attachment, Rt
 from .models import Ticket
 
 logger = logging.getLogger(__name__)
-
-try:
-    from pretalx.mail.signals import html_after_mail_badge
-except ImportError:
-    from pretalx.common.signals import EventPluginSignal
-
-    html_after_mail_badge = EventPluginSignal()
-    logger.warn("'html_after_mail_badge' is not available in this pretalx version.")
-try:
-    from pretalx.mail.signals import html_below_mail_subject
-except ImportError:
-    from pretalx.common.signals import EventPluginSignal
-
-    html_below_mail_subject = EventPluginSignal()
-    logger.warn("'html_below_mail_subject' is not available in this pretalx version.")
-try:
-    from pretalx.submission.signals import html_below_submission_form
-except ImportError:
-    from pretalx.common.signals import EventPluginSignal
-
-    html_below_submission_form = EventPluginSignal()
-    logger.warn(
-        "'html_below_submission_form' is not available in this pretalx version."
-    )
-try:
-    from pretalx.submission.signals import html_below_submission_link
-except ImportError:
-    from pretalx.common.signals import EventPluginSignal
-
-    html_below_submission_link = EventPluginSignal()
-    logger.warn(
-        "'html_below_submission_link' is not available in this pretalx version."
-    )
-
-
-@receiver(nav_event_settings)
-def pretalx_rt_settings(sender, request, **kwargs):
-    if not request.user.has_perm("orga.change_settings", request.event):
-        return []
-    return [
-        {
-            "label": "RT",
-            "url": reverse(
-                "plugins:pretalx_rt:settings",
-                kwargs={"event": request.event.slug},
-            ),
-            "active": request.resolver_match.url_name == "plugins:pretalx_rt:settings",
-        }
-    ]
 
 
 @receiver(periodic_task)
@@ -90,63 +35,6 @@ def pretalx_rt_periodic_sync(sender, **kwargs):
             pretalx_rt_sync(event, ticket)
 
 
-@receiver(register_data_exporters, dispatch_uid="exporter_rt")
-def pretalx_rt_data_exporter(sender, **kwargs):
-    logger.info("exporter registration")
-    from .exporter import Exporter
-
-    return Exporter
-
-
-@receiver(html_after_mail_badge)
-def pretalx_rt_html_after_mail_badge(sender, request, mail, **kwargs):
-    result = ""
-    for ticket in mail.rt_tickets.all():
-        result += '<i class="fa fa-check-square-o" title="Request Tracker"></i> '
-        result += f'<a href="{sender.settings.rt_url}Ticket/Display.html?id={ticket.id}">{ticket.id}</a> '
-    return result
-
-
-@receiver(html_below_mail_subject)
-def pretalx_rt_html_below_mail_subject(sender, request, mail, **kwargs):
-    result = ""
-    for ticket in mail.rt_tickets.all():
-        result += '<i class="fa fa-check-square-o" title="Request Tracker"></i> '
-        result += f'<a href="{sender.settings.rt_url}Ticket/Display.html?id={ticket.id}">{ticket.id}</a>: '
-        result += f"<small>{ticket.subject} ({ticket.status} in queue {ticket.queue})</small> "
-    return result
-
-
-@receiver(html_below_submission_form)
-def pretalx_rt_html_below_submission_form(sender, request, submission, **kwargs):
-    result = ""
-    if hasattr(submission, "rt_ticket"):
-        result += '<div class="form-group row">'
-        result += '<label class="col-md-3 col-form-label">'
-        result += "Request Tracker"
-        result += "</label>"
-        result += '<div class="col-md-9">'
-        result += '<div class="pt-2">'
-        result += '<i class="fa fa-check-square-o"></i> '
-        result += f'<a href="{sender.settings.rt_url}Ticket/Display.html?id={submission.rt_ticket.id}">{submission.rt_ticket.id}</a> : '
-        result += f"{submission.rt_ticket.subject}"
-        result += f'<small class="form-text text-muted">{submission.rt_ticket.status} in queue {submission.rt_ticket.queue}</small>'
-        result += "</div>"
-        result += "</div>"
-        result += "</div>"
-    return result
-
-
-@receiver(html_below_submission_link)
-def pretalx_rt_html_below_submission_link(sender, request, submission, **kwargs):
-    result = ""
-    if hasattr(submission, "rt_ticket"):
-        result += f'<a href="{sender.settings.rt_url}Ticket/Display.html?id={submission.rt_ticket.id}" class="dropdown-item" role="menuitem" tabindex="-1">'
-        result += f'<i class="fa fa-check-square-o"></i> Request Tracker ({submission.rt_ticket.id})'
-        result += "</a>"
-    return result
-
-
 @receiver(submission_state_change)
 def pretalx_rt_submission_state_change(sender, submission, old_state, user, **kwargs):
     logger.info(f"submission state change hook: {submission.code} > {submission.state}")
@@ -155,7 +43,7 @@ def pretalx_rt_submission_state_change(sender, submission, old_state, user, **kw
         ticket = submission.rt_ticket
     if ticket is None:
         ticket = create_rt_submission_ticket(sender, submission)
-    pretalx_rt_sync(sender, ticket)
+    pretalx_rt_push(sender, ticket)
 
 
 @receiver(queuedmail_pre_send)
@@ -200,7 +88,7 @@ def create_rt_submission_ticket(event, submission):
     )
     ticket = Ticket(id)
     ticket.submission = submission
-    pretalx_rt_sync(event, ticket)
+    pretalx_rt_push(event, ticket)
     return ticket
 
 
@@ -222,7 +110,7 @@ def create_rt_mail_ticket(event, mail):
         Owner="Nobody",
     )
     ticket = Ticket(id)
-    pretalx_rt_sync(event, ticket)
+    pretalx_rt_push(event, ticket)
     return ticket
 
 
@@ -269,6 +157,12 @@ def create_rt_mail(event, ticket, mail):
 
 def pretalx_rt_sync(event, ticket):
     logger.info(f"update RT ticket {ticket.id}")
+    pretalx_rt_push(event, ticket)
+    pretalx_rt_pull(event, ticket)
+
+
+def pretalx_rt_push(event, ticket):
+    logger.info(f"push RT ticket {ticket.id}")
     rt = Rt(
         url=event.settings.rt_url + "REST/2.0/",
         token=event.settings.rt_rest_api_key,
@@ -286,6 +180,14 @@ def pretalx_rt_sync(event, ticket):
                 event.settings.rt_custom_field_state: ticket.submission.state,
             },
         )
+
+
+def pretalx_rt_pull(event, ticket):
+    logger.info(f"pull RT ticket {ticket.id}")
+    rt = Rt(
+        url=event.settings.rt_url + "REST/2.0/",
+        token=event.settings.rt_rest_api_key,
+    )
     rt_ticket = rt.get_ticket(ticket.id)
     ticket.subject = rt_ticket["Subject"]
     ticket.status = rt_ticket["Status"]
