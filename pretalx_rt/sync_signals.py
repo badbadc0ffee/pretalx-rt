@@ -41,7 +41,8 @@ def pretalx_rt_periodic_pull(sender, **kwargs):
 @receiver(submission_state_change)
 def pretalx_rt_submission_state_change(sender, submission, old_state, user, **kwargs):
     logger.info(f"submission state change hook: {submission.code} > {submission.state}")
-    if ticket := getattr(submission, "rt_ticket", None) is None:
+    ticket = getattr(submission, "rt_ticket", None)
+    if ticket is None:
         ticket = create_rt_submission_ticket(sender, submission)
     pretalx_rt_push(sender, ticket)
 
@@ -52,7 +53,8 @@ def pretalx_rt_queuedmail_pre_send(sender, mail, **kwargs):
     ticket = None
     if mail.submissions.count() == 1:
         submission = mail.submissions.first()
-        if ticket := getattr(submission, "rt_ticket", None) is None:
+        ticket = getattr(submission, "rt_ticket", None)
+        if ticket is None:
             ticket = create_rt_submission_ticket(sender, submission)
     if ticket is None:
         ticket = create_rt_mail_ticket(sender, mail)
