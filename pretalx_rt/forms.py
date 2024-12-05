@@ -14,7 +14,6 @@ class SettingsForm(HierarkeyForm):
         label=_("API Token"),
         widget=forms.PasswordInput(
             attrs={"placeholder": "1-23-45678901234567890123456789012345"},
-            render_value=True,
         ),
         help_text=_("Autohorization token for Request Tracker REST 2.0 API."),
     )

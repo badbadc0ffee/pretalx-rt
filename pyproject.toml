@@ -13,7 +13,7 @@ maintainers = [
 ]
 
 dependencies = [
-  "rt~=3.2.0",
+  "rt",
 ]
 
 [project.optional-dependencies]
