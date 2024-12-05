@@ -4,13 +4,12 @@ from datetime import timedelta
 from django.db.models.signals import pre_save
 from django.dispatch import receiver
 from django.utils.timezone import now
-from rt.rest2 import Attachment, Rt
-
 from pretalx.common.signals import minimum_interval, periodic_task
 from pretalx.mail.signals import queuedmail_pre_send
 from pretalx.person.models import User
 from pretalx.submission.models import Submission
 from pretalx.submission.signals import submission_state_change
+from rt.rest2 import Attachment, Rt
 
 from .models import Ticket
 
