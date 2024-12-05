@@ -2,6 +2,7 @@ import logging
 
 from django.dispatch import receiver
 from django.urls import reverse
+
 from pretalx.common.signals import register_data_exporters
 from pretalx.mail.signals import html_after_mail_badge, html_below_mail_subject
 from pretalx.orga.signals import nav_event_settings
@@ -48,6 +49,8 @@ def pretalx_rt_html_after_mail_badge(sender, request, mail, **kwargs):
 
 @receiver(html_below_mail_subject)
 def pretalx_rt_html_below_mail_subject(sender, request, mail, **kwargs):
+    if not request.user.has_perm("orga.view_mails", request.event):
+        return None
     result = ""
     for ticket in mail.rt_tickets.all():
         result += '<i class="fa fa-check-square-o" title="Request Tracker"></i> '
