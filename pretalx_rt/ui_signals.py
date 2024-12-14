@@ -2,7 +2,6 @@ import logging
 
 from django.dispatch import receiver
 from django.urls import reverse
-
 from pretalx.common.signals import register_data_exporters
 from pretalx.mail.signals import mail_form_html
 from pretalx.orga.signals import nav_event_settings
