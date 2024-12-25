@@ -94,3 +94,22 @@ def pretalx_rt_submission_form_link(sender, request, submission, **kwargs):
         result += f'<i class="fa fa-check-square-o"></i> Request Tracker ({submission.rt_ticket.id})'
         result += "</a>"
     return result
+
+
+try:
+    from samaware.signals import submission_html
+
+    @receiver(submission_html)
+    def samaware_submission_html(sender, request, submission, **kwargs):
+        if hasattr(submission, "rt_ticket"):
+            ticket = submission.rt_ticket
+            return f"""
+            <h3>Request Tracker</h3>
+            <i class="fa fa-check-square-o"></i>
+            <a href="{sender.settings.rt_url}Ticket/Display.html?id={ticket.id}">{ticket.id}</a> : {ticket.subject}</br>
+            <small>{ticket.status} in queue {ticket.queue}</small>
+            """
+        return None
+
+except ImportError:
+    pass
