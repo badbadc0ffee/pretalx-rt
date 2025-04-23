@@ -1,6 +1,11 @@
 from django import forms
 from django.utils.translation import gettext_lazy as _
 from hierarkey.forms import HierarkeyForm
+from pretalx.common.forms.renderers import TabularFormRenderer
+from pretalx.mail.models import QueuedMail
+from pretalx.submission.models import Submission
+
+from .models import Ticket
 
 
 class SettingsForm(HierarkeyForm):
@@ -59,3 +64,26 @@ class SettingsForm(HierarkeyForm):
         event = kwargs.get("obj")
         if not event.settings.rt_queue:
             self.fields["rt_queue"].initial = event.slug
+
+
+class RTRenderer(TabularFormRenderer):
+    form_template_name = "pretalx_rt/form.html"
+
+
+class RTForm(forms.ModelForm):
+    default_renderer = RTRenderer
+
+    mails = forms.ModelChoiceField(queryset=QueuedMail.objects.none())
+    submission = forms.ModelChoiceField(queryset=Submission.all_objects.none())
+
+    class Meta:
+        model = Ticket
+        exclude = ["id"]
+
+    def __init__(self, *args, **kwargs):
+        self.event = kwargs.pop("event")
+        super().__init__(*args, **kwargs)
+        self.fields["mails"].queryset = QueuedMail.objects.filter(event=self.event)
+        self.fields["submission"].queryset = Submission.objects.filter(event=self.event)
+        for fieldname in self.fields:
+            self.fields[fieldname].disabled = True

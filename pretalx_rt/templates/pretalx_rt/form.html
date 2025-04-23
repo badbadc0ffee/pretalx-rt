@@ -1,0 +1,21 @@
+<div class="form-group row">
+    <label class="col-md-3 col-form-label">
+        {{ form.instance.queue }} Ticket
+    </label>
+    <div class="col-md-9">
+        <div class="input-group">
+            <div class="input-group-prepend">
+                <span class="input-group-text">
+                    <i class="fa fa-check-square-o"></i>&nbsp;&nbsp;
+                    <a href="{{ form.event.settings.rt_url }}Ticket/Display.html?id={{ form.instance.id }}">{{ form.instance.id }}</a>
+                </span>
+            </div>
+            <input type="text" value="{{ form.instance.subject }}" disabled>
+            <div class="input-group-append">
+                <span class="input-group-text">
+                    {{ form.instance.status }}
+                </span>
+            </div>
+        </div>
+    </div>
+</div>
