@@ -1,0 +1,24 @@
+<h3>Request Tracker</h3>
+{% for ticket in tickets %}
+    <div class="form-group row">
+        <label class="col-md-3 col-form-label">
+            {{ ticket.queue }} Ticket
+        </label>
+        <div class="col-md-9">
+            <div class="input-group">
+                <div class="input-group-prepend">
+                    <span class="input-group-text">
+                    {% comment %} <i class="fa fa-check-square-o"></i>&nbsp;&nbsp; {% endcomment %}
+                        <a href="{{ event.settings.rt_url }}Ticket/Display.html?id={{ ticket.id }}">#{{ ticket.id }}</a>
+                    </span>
+                </div>
+                <input type="text" value="{{ ticket.subject }}" disabled>
+                <div class="input-group-append">
+                    <span class="input-group-text">
+                        {{ ticket.status }}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endfor %}

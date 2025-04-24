@@ -1,6 +1,7 @@
 import logging
 
 from django.dispatch import receiver
+from django.template import loader
 from django.urls import reverse
 from pretalx.common.signals import register_data_exporters
 from pretalx.mail.signals import mail_forms
@@ -68,13 +69,13 @@ try:
     @receiver(submission_html)
     def samaware_submission_html(sender, request, submission, **kwargs):
         if hasattr(submission, "rt_ticket"):
-            ticket = submission.rt_ticket
-            return f"""
-            <h3>Request Tracker</h3>
-            <i class="fa fa-check-square-o"></i>
-            <a href="{sender.settings.rt_url}Ticket/Display.html?id={ticket.id}">{ticket.id}</a> : {ticket.subject}</br>
-            <small>{ticket.status} in queue {ticket.queue}</small>
-            """
+            tickets = [submission.rt_ticket]
+            template = loader.get_template("pretalx_rt/samaware.html")
+            context = {
+                "event": sender,
+                "tickets": tickets,
+            }
+            return template.render(context, None)
         return None
 
 except ImportError:
