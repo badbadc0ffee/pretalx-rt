@@ -1,0 +1,134 @@
+#: pretalx_rt/apps.py:15
+msgid ""
+"pretalx plugin for RT issue tracker.\n"
+"\n"
+"This plugin allows you to use the RT issue tracker for communication with\n"
+"speakers.\n"
+"\n"
+"The plugin will be used to send out all notifications that would normally\n"
+"be sent out as mail via RT instead of SMTP - with the exception of mails\n"
+"that will be sent out to reset passwords. Those will still be sent out via\n"
+"SMTP directly.\n"
+"\n"
+"Information regarding the corresponding RT ticket will be included in the\n"
+"submission and speaker forms in the pretalx orga interface. The plugin will\n"
+"keep track of the RT ticket related to each submission and will reuse that\n"
+"ticket for all notifications that are sent out to the speakers.\n"
+"\n"
+"New tickets will be automatically created when a new submission is created\n"
+"or for notifications that are not related to a submission but directly\n"
+"adressed to a person instead.\n"
+msgstr ""
+"pretalx-Plugin f&uuml;r das RT-Issue-Tracker-System.\n"
+"\n"
+"Dieses Plugin sorgt daf&uuml;r, dass du den RT-Issue-Tracker nutzen kannst, "
+"um mit den Personen zu kommunizieren, die Vortr&auml;ge eingereicht haben.\n"
+"\n"
+"Anstatt Mails wie sonst &uuml;blich per SMTP zu verschicken, werden mit "
+"diesem Plugin alle Benachrichtigungen &uuml;ber RT gesendet – au&szlig;er "
+"Passwortr&uuml;cksetzungs-Mails. Die gehen weiterhin direkt per SMTP raus.\n"
+"\n"
+"Infos zum zugeh&ouml;rigen RT-Ticket siehst du dann in den Einreichungs- und "
+"Formularansichten im pretalx-Orga-Interface. Das Plugin beh&auml;lt den "
+"&Uuml;berblick, welches Ticket zu welcher Einreichung geh&ouml;rt, und nutzt "
+"es auch f&uuml;r alle weiteren Nachrichten an die jeweiligen Personen.\n"
+"\n"
+"Wenn eine neue Einreichung erstellt wird – oder wenn eine Nachricht nicht "
+"direkt mit einer Einreichung zusammenh&auml;ngt, sondern direkt an eine "
+"Person geht – wird automatisch ein neues Ticket angelegt.\n"
+
+#: pretalx_rt/forms.py:8
+msgid "Base URL"
+msgstr "Basis-URL"
+
+#: pretalx_rt/forms.py:10
+msgid "Base URL for Request Tracker"
+msgstr "Basis-URL f&uuml;r den Request Tracker"
+
+#: pretalx_rt/forms.py:14
+msgid "API Token"
+msgstr "API Zugriffs-Token"
+
+#: pretalx_rt/forms.py:18
+msgid "Authorization token for Request Tracker REST 2.0 API"
+msgstr "Autorisierungstoken f&uuml;r die Request Tracker REST 2.0 API"
+
+#: pretalx_rt/forms.py:22 pretalx_rt/models.py:23
+msgid "Queue"
+msgstr "Bereich"
+
+#: pretalx_rt/forms.py:23
+msgid "RT Queue for this event"
+msgstr "RT Bereich (Queue) f&uuml;r dieses Event"
+
+#: pretalx_rt/forms.py:27
+msgid "Initial state"
+msgstr "Initialer Status"
+
+#: pretalx_rt/forms.py:28
+msgid "Initial RT status for newly created tickets"
+msgstr "Initialer Status f&uuml;r neu angelegte Tickets"
+
+#: pretalx_rt/forms.py:33
+msgid "Custom field for pretalx ID"
+msgstr "Feld für pretalx Code"
+
+#: pretalx_rt/forms.py:34
+msgid "Custom field in RT to store reference to pretalx ID"
+msgstr "Benutzerdefiniertes Feld f&uuml;r den pretalx Code der Einreichung"
+
+#: pretalx_rt/forms.py:39
+msgid "Custom field for pretalx state"
+msgstr "Feld für pretalx Status"
+
+#: pretalx_rt/forms.py:40
+msgid "Custom field in RT to store pretalx state"
+msgstr "Benutzerdefiniertes Feld f&uuml;r den pretalx Status der Einreichung"
+
+#: pretalx_rt/forms.py:45
+msgid "Send HTML mails"
+msgstr "Sende HTML-Mails"
+
+#: pretalx_rt/forms.py:46
+msgid "Let RT send out mails in HTML markup"
+msgstr "Sende HTML formatierte E-Mails"
+
+#: pretalx_rt/forms.py:52
+msgid "Sync interval"
+msgstr "Synchronisationsintervall"
+
+#: pretalx_rt/forms.py:53
+msgid "Minimum interval in minutes to sync RT tickets"
+msgstr "Mindestintervall zwischen Synchronisationsdurchg&auml;ngen"
+
+#: pretalx_rt/models.py:8
+msgid "Ticket ID"
+msgstr "Ticket ID"
+
+#: pretalx_rt/models.py:9
+msgid "The numeric ID of the ticket in RT"
+msgstr "Numerische ID des Tickets in RT"
+
+#: pretalx_rt/models.py:13
+msgid "Subject"
+msgstr "Betreff"
+
+#: pretalx_rt/models.py:14
+msgid "The subject of the ticket in RT"
+msgstr "Betreff des Tickets in RT"
+
+#: pretalx_rt/models.py:18
+msgid "Status"
+msgstr "Status"
+
+#: pretalx_rt/models.py:19
+msgid "The status of the ticket in RT"
+msgstr "Status des Tickets in RT"
+
+#: pretalx_rt/models.py:24
+msgid "The queue of the ticket in RT"
+msgstr "Bereich (Queue) des Tickets in RT"
+
+#: pretalx_rt/views.py:27
+msgid "The pretalx RT plugin settings were updated."
+msgstr "Die Einstellungen des RT Plugins wurden aktualisiert."

@@ -3,9 +3,11 @@ import logging
 from django.dispatch import receiver
 from django.urls import reverse
 from pretalx.common.signals import register_data_exporters
-from pretalx.mail.signals import mail_form_html
+from pretalx.mail.signals import mail_forms
 from pretalx.orga.signals import nav_event_settings
-from pretalx.submission.signals import submission_form_html, submission_form_link
+from pretalx.submission.signals import submission_form_link, submission_forms
+
+from .forms import RTForm
 
 logger = logging.getLogger(__name__)
 
@@ -34,56 +36,20 @@ def pretalx_rt_data_exporter(sender, **kwargs):
     return Exporter
 
 
-# @receiver(html_after_mail_badge)
-def pretalx_rt_html_after_mail_badge(sender, request, mail, **kwargs):
-    result = ""
+@receiver(mail_forms)
+def pretalx_rt_mail_forms(sender, request, mail, **kwargs):
+    forms = []
     for ticket in mail.rt_tickets.all():
-        result += '<i class="fa fa-check-square-o" title="Request Tracker"></i> '
-        result += f'<a href="{sender.settings.rt_url}Ticket/Display.html?id={ticket.id}">{ticket.id}</a> '
-    return result
+        forms.append(RTForm(instance=ticket, event=sender))
+    return forms
 
 
-@receiver(mail_form_html)
-def pretalx_rt_mail_form_html(sender, request, mail, **kwargs):
-    if not request.user.has_perm("orga.view_mails", request.event):
-        return None
-    result = ""
-    for ticket in mail.rt_tickets.all():
-        result += '<div class="form-group row">'
-        result += '<label class="col-md-3 col-form-label">'
-        result += "Request Tracker"
-        result += "</label>"
-        result += '<div class="col-md-9">'
-        result += '<div class="pt-2">'
-        result += '<i class="fa fa-check-square-o"></i> '
-        result += f'<a href="{sender.settings.rt_url}Ticket/Display.html?id={ticket.id}">{ticket.id}</a> : '
-        result += f"{ticket.subject}"
-        result += f'<small class="form-text text-muted">{ticket.status} in queue {ticket.queue}</small>'
-        result += "</div>"
-        result += "</div>"
-        result += "</div>"
-    return result
-
-
-@receiver(submission_form_html)
-def pretalx_rt_submission_form_html(sender, request, submission, **kwargs):
-    result = ""
+@receiver(submission_forms)
+def pretalx_rt_submission_forms(sender, request, submission, **kwargs):
+    forms = []
     if hasattr(submission, "rt_ticket"):
-        ticket = submission.rt_ticket
-        result += '<div class="form-group row">'
-        result += '<label class="col-md-3 col-form-label">'
-        result += "Request Tracker"
-        result += "</label>"
-        result += '<div class="col-md-9">'
-        result += '<div class="pt-2">'
-        result += '<i class="fa fa-check-square-o"></i> '
-        result += f'<a href="{sender.settings.rt_url}Ticket/Display.html?id={ticket.id}">{ticket.id}</a> : '
-        result += f"{ticket.subject}"
-        result += f'<small class="form-text text-muted">{ticket.status} in queue {ticket.queue}</small>'
-        result += "</div>"
-        result += "</div>"
-        result += "</div>"
-    return result
+        forms.append(RTForm(instance=submission.rt_ticket, event=sender))
+    return forms
 
 
 @receiver(submission_form_link)
