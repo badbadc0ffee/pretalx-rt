@@ -3,7 +3,7 @@ import logging
 from django.dispatch import receiver
 from django.urls import reverse
 from pretalx.common.signals import register_data_exporters
-from pretalx.mail.signals import mail_forms, mail_form_html
+from pretalx.mail.signals import mail_forms
 from pretalx.orga.signals import nav_event_settings
 from pretalx.submission.signals import submission_form_link, submission_forms
 
@@ -37,7 +37,7 @@ def pretalx_rt_data_exporter(sender, **kwargs):
 
 
 @receiver(mail_forms)
-def pretalx_rt_submission_forms(sender, request, mail, **kwargs):
+def pretalx_rt_mail_forms(sender, request, mail, **kwargs):
     forms = []
     for ticket in mail.rt_tickets.all():
         forms.append(RTForm(instance=ticket, event=sender))
