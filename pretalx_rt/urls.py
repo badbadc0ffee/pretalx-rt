@@ -13,7 +13,7 @@ def session_redirect(request, code, *args, **kwargs):
         submission = Submission.objects.get(code__iexact=code)
     except Submission.DoesNotExist:
         return HttpResponseRedirect("/403")
-    if request.user.has_perm("orga.view_orga_area", submission.event):
+    if request.user.has_perm("event.orga_access_event", submission.event):
         return HttpResponseRedirect(submission.orga_urls.base.full())
     return HttpResponseRedirect(submission.urls.public.full())
 
