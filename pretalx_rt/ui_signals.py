@@ -4,9 +4,7 @@ from django.dispatch import receiver
 from django.template import loader
 from django.urls import reverse
 from pretalx.common.signals import register_data_exporters
-from pretalx.mail.signals import mail_forms
-from pretalx.orga.signals import nav_event_settings
-from pretalx.submission.signals import submission_form_link, submission_forms
+from pretalx.orga.signals import mail_form, nav_event_settings, submission_form
 
 from .forms import RTForm
 
@@ -37,23 +35,23 @@ def pretalx_rt_data_exporter(sender, **kwargs):
     return Exporter
 
 
-@receiver(mail_forms)
-def pretalx_rt_mail_forms(sender, request, mail, **kwargs):
+@receiver(mail_form)
+def pretalx_rt_mail_form(sender, request, instance, **kwargs):
     forms = []
-    for ticket in mail.rt_tickets.all():
+    for ticket in instance.rt_tickets.all():
         forms.append(RTForm(instance=ticket, event=sender))
     return forms
 
 
-@receiver(submission_forms)
-def pretalx_rt_submission_forms(sender, request, submission, **kwargs):
+@receiver(submission_form)
+def pretalx_rt_submission_form(sender, request, instance, **kwargs):
     forms = []
-    if hasattr(submission, "rt_ticket"):
-        forms.append(RTForm(instance=submission.rt_ticket, event=sender))
+    if hasattr(instance, "rt_ticket"):
+        forms.append(RTForm(instance=instance.rt_ticket, event=sender))
     return forms
 
 
-@receiver(submission_form_link)
+#@receiver(submission_form_link)
 def pretalx_rt_submission_form_link(sender, request, submission, **kwargs):
     result = ""
     if hasattr(submission, "rt_ticket"):
