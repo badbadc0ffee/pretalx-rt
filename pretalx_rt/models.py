@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from django.utils.safestring import mark_safe
 
 
 class Ticket(models.Model):
@@ -40,3 +41,35 @@ class Ticket(models.Model):
     sync_timestamp = models.DateTimeField(
         auto_now_add=True,
     )
+
+
+    @property
+    def status_class(self):
+        if self.status == "new":
+            return "text-info"
+        elif self.status == "open":
+            return "text-info"
+        elif self.status == "resolved":
+            return "text-success"
+        elif self.status == "rejected":
+            return "text-danger"
+        elif self.status == "stalled":
+            return "text-danger"
+        else:
+            return ""
+
+    @property
+    @mark_safe
+    def status_text(self):
+        if self.status == "new":
+            return "<i class='fa fa-inbox'></i>&nbsp;&nbsp;new"
+        elif self.status == "open":
+            return "<i class='fa fa-question-circle'></i>&nbsp;&nbsp;open"
+        elif self.status == "stalled":
+            return "<i class='fa fa-warning'></i>&nbsp;&nbsp;stalled"
+        elif self.status == "resolved":
+            return "<i class='fa fa-check-circle'></i>&nbsp;&nbsp;resolved"
+        elif self.status == "rejected":
+            return "<i class='fa fa-ban'></i>&nbsp;&nbsp;rejected"
+        else:
+            return self.status

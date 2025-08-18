@@ -13,8 +13,8 @@
             </div>
             <input type="text" value="{{ form.instance.subject }}" disabled>
             <div class="input-group-append">
-                <span class="input-group-text">
-                    {{ form.instance.status }}
+                <span class="input-group-text {{ form.instance.status_class }}">
+                    {{ form.instance.status_text }}
                 </span>
             </div>
         </div>
