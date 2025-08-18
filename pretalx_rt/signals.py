@@ -13,13 +13,11 @@ from pretalx.common.signals import (
 )
 from pretalx.mail.signals import queuedmail_pre_send
 from pretalx.orga.signals import mail_form, nav_event_settings, submission_form
-from pretalx.person.models import User
 from pretalx.submission.models import Submission
-from rt.rest2 import Attachment, Rt
 
 from .forms import RTForm
 from .models import Ticket
-from .rt_sync import RTSync
+from .rt_sync import RTSync, ticket_pull_task, ticket_push_task
 
 logger = logging.getLogger(__name__)
 
@@ -74,8 +72,12 @@ def pretalx_rt_submission_form(sender, request, instance, **kwargs):
 
     Returns a form for the RT ticket if the submission has one.
     """
-    if hasattr(instance, "rt_ticket"):
-        return [RTForm(instance=instance.rt_ticket, event=sender)]
+    if ticket := getattr(instance, "rt_ticket", None):
+        if needs_sync(ticket, sender):
+            ticket_pull_task.apply_async(
+                kwargs={"event_id": sender.pk, "ticket_id": ticket.pk}
+            )
+        return [RTForm(instance=ticket, event=sender)]
     return []
 
 
@@ -129,10 +131,8 @@ def pretalx_rt_periodic_pull(sender, **kwargs):
 
         event = ticket.submission.event
 
-        rt_sync = RTSync(event)
-
-        if rt_sync.needs_sync(ticket):
-            rt_sync.pull(ticket)
+        if needs_sync(ticket):
+            RTSync(event).pull(ticket)
 
 
 @receiver(queuedmail_pre_send)
@@ -172,7 +172,7 @@ def pretalx_rt_submission_changed(sender, instance, **kwargs):
     if ticket is None:
         ticket = rt_sync.create_submission_ticket(instance)
 
-    rt_sync.push(ticket)
+    ticket_push_task.apply_async(kwargs={"event_id": instance.event.pk, "ticket_id": ticket.pk})
 
 
 @receiver(m2m_changed, sender=Submission.speakers.through)
@@ -181,7 +181,7 @@ def pretalx_rt_submission_speaker_changed(sender, instance, action, **kwargs):
     if not is_enabled(instance.event):
         return
 
-    if action != "post_save":
+    if action not in ["post_add", "post_remove"]:
         return
 
     rt_sync = RTSync(instance.event)
@@ -190,7 +190,7 @@ def pretalx_rt_submission_speaker_changed(sender, instance, action, **kwargs):
     if ticket is None:
         ticket = rt_sync.create_submission_ticket(instance)
 
-    rt_sync.push(ticket)
+    ticket_push_task.apply_async(kwargs={"event_id": instance.event.pk, "ticket_id": ticket.pk})
 
 
 def is_enabled(event):

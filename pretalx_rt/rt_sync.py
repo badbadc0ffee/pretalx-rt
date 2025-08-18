@@ -1,7 +1,8 @@
 import logging
-from datetime import timedelta
 
 from django.utils.timezone import now
+from pretalx.celery_app import app
+from pretalx.event.models import Event
 from pretalx.person.models import User
 from rt.rest2 import Attachment, Rt
 
@@ -111,6 +112,9 @@ class RTSync:
                 self.event.settings.rt_custom_field_state: ticket.submission.state,
             },
         )
+        ticket_pull_task.apply_async(
+            kwargs={"event_id": self.event.pk, "ticket_id": ticket.pk}
+        )
 
     def pull(self, ticket):
         """Pull updates from RT ticket to pretalx."""
@@ -131,3 +135,13 @@ class RTSync:
     def requestors(self, users):
         """Format user information for RT requestors field."""
         return [f"{user.name.replace('@', '(at)')} <{user.email}>" for user in users]
+
+
+@app.task(bind=True, name="pretalx_rt.ticket_pull_task")
+def ticket_pull_task(self, event_id: int, ticket_id: int):
+    RTSync(Event.objects.get(id=event_id)).pull(Ticket.objects.get(id=ticket_id))
+
+
+@app.task(bind=True, name="pretalx_rt.ticket_push_task")
+def ticket_push_task(self, event_id: int, ticket_id: int):
+    RTSync(Event.objects.get(id=event_id)).push(Ticket.objects.get(id=ticket_id))
