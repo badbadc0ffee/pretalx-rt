@@ -1,7 +1,7 @@
 import logging
 from datetime import timedelta
 
-from django.db.models.signals import pre_save
+from django.db.models.signals import m2m_changed, post_save
 from django.dispatch import receiver
 from django.template import loader
 from django.urls import reverse
@@ -177,8 +177,8 @@ def pretalx_rt_queuedmail_pre_send(sender, mail, **kwargs):
     rt_sync.add_mail_to_ticket(ticket, mail)
 
 
-@receiver(pre_save, sender=Submission)
-def pretalx_rt_submission_pre_save(sender, instance, **kwargs):
+@receiver(post_save, sender=Submission)
+def pretalx_rt_submission_changed(sender, instance, **kwargs):
     """Update RT ticket when submission is saved."""
     if not is_enabled(instance.event):
         return
@@ -187,6 +187,21 @@ def pretalx_rt_submission_pre_save(sender, instance, **kwargs):
         return
 
     rt_sync = RTSync(instance.event)
+    if ticket := getattr(instance, "rt_ticket", None):
+        rt_sync.push(ticket)
+
+
+@receiver(m2m_changed, sender=Submission.speakers.through)
+def pretalx_rt_submission_speaker_changed(sender, instance, action, **kwargs):
+    """Handle changes to speakers of a submission by updating the RT ticket."""
+    if not is_enabled(instance.event):
+        return
+
+    if action != "post_save":
+        return
+
+    rt_sync = RTSync(instance.event)
+
     if ticket := getattr(instance, "rt_ticket", None):
         rt_sync.push(ticket)
 
