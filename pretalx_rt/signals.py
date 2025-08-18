@@ -15,7 +15,6 @@ from pretalx.mail.signals import queuedmail_pre_send
 from pretalx.orga.signals import mail_form, nav_event_settings, submission_form
 from pretalx.person.models import User
 from pretalx.submission.models import Submission
-from pretalx.submission.signals import submission_state_change
 from rt.rest2 import Attachment, Rt
 
 from .forms import RTForm
@@ -136,22 +135,6 @@ def pretalx_rt_periodic_pull(sender, **kwargs):
             rt_sync.pull(ticket)
 
 
-@receiver(submission_state_change)
-def pretalx_rt_submission_state_change(sender, submission, old_state, user, **kwargs):
-    """Handle submission state changes by creating or updating RT tickets."""
-    logger.info(f"Submission state change: {submission.code} > {submission.state}")
-
-    if not is_enabled(sender):
-        return
-
-    rt_sync = RTSync(sender)
-
-    ticket = getattr(submission, "rt_ticket", None)
-    if ticket is None:
-        ticket = rt_sync.create_submission_ticket(submission)
-    rt_sync.push(ticket)
-
-
 @receiver(queuedmail_pre_send)
 def pretalx_rt_queuedmail_pre_send(sender, mail, **kwargs):
     """Handle outgoing mail by creating RT tickets and replies."""
@@ -179,21 +162,22 @@ def pretalx_rt_queuedmail_pre_send(sender, mail, **kwargs):
 
 @receiver(post_save, sender=Submission)
 def pretalx_rt_submission_changed(sender, instance, **kwargs):
-    """Update RT ticket when submission is saved."""
+    """Update or create RT ticket when submission is saved."""
     if not is_enabled(instance.event):
         return
 
-    if not instance.pk:
-        return
-
     rt_sync = RTSync(instance.event)
-    if ticket := getattr(instance, "rt_ticket", None):
-        rt_sync.push(ticket)
+
+    ticket = getattr(instance, "rt_ticket", None)
+    if ticket is None:
+        ticket = rt_sync.create_submission_ticket(instance)
+
+    rt_sync.push(ticket)
 
 
 @receiver(m2m_changed, sender=Submission.speakers.through)
 def pretalx_rt_submission_speaker_changed(sender, instance, action, **kwargs):
-    """Handle changes to speakers of a submission by updating the RT ticket."""
+    """Handle changes to speakers of a submission by updating or creating the RT ticket."""
     if not is_enabled(instance.event):
         return
 
@@ -202,8 +186,11 @@ def pretalx_rt_submission_speaker_changed(sender, instance, action, **kwargs):
 
     rt_sync = RTSync(instance.event)
 
-    if ticket := getattr(instance, "rt_ticket", None):
-        rt_sync.push(ticket)
+    ticket = getattr(instance, "rt_ticket", None)
+    if ticket is None:
+        ticket = rt_sync.create_submission_ticket(instance)
+
+    rt_sync.push(ticket)
 
 
 def is_enabled(event):
