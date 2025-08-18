@@ -115,6 +115,10 @@ except ImportError:
 def pretalx_rt_periodic_pull(sender, **kwargs):
     """Periodically pull updates from RT for existing tickets."""
     logger.debug("Starting periodic RT ticket sync")
+
+    if not is_enabled(sender):
+        return
+
     start = now()
 
     for ticket in Ticket.objects.exclude(submission__isnull=True).order_by(
@@ -125,9 +129,8 @@ def pretalx_rt_periodic_pull(sender, **kwargs):
             return
 
         event = ticket.submission.event
+
         rt_sync = RTSync(event)
-        if not rt_sync.is_enabled():
-            continue
 
         if rt_sync.needs_sync(ticket):
             rt_sync.pull(ticket)
@@ -138,9 +141,10 @@ def pretalx_rt_submission_state_change(sender, submission, old_state, user, **kw
     """Handle submission state changes by creating or updating RT tickets."""
     logger.info(f"Submission state change: {submission.code} > {submission.state}")
 
-    rt_sync = RTSync(sender)
-    if not rt_sync.is_enabled():
+    if not is_enabled(sender):
         return
+
+    rt_sync = RTSync(sender)
 
     ticket = getattr(submission, "rt_ticket", None)
     if ticket is None:
@@ -153,10 +157,10 @@ def pretalx_rt_queuedmail_pre_send(sender, mail, **kwargs):
     """Handle outgoing mail by creating RT tickets and replies."""
     logger.debug("Processing outgoing mail")
 
-    rt_sync = RTSync(sender)
-    if not rt_sync.is_enabled():
+    if not is_enabled(sender):
         return
 
+    rt_sync = RTSync(sender)
     ticket = None
 
     # Try to get or create submission-related ticket
@@ -176,12 +180,26 @@ def pretalx_rt_queuedmail_pre_send(sender, mail, **kwargs):
 @receiver(pre_save, sender=Submission)
 def pretalx_rt_submission_pre_save(sender, instance, **kwargs):
     """Update RT ticket when submission is saved."""
+    if not is_enabled(instance.event):
+        return
+
     if not instance.pk:
         return
 
     rt_sync = RTSync(instance.event)
-    if not rt_sync.is_enabled():
-        return
-
     if ticket := getattr(instance, "rt_ticket", None):
         rt_sync.push(ticket)
+
+
+def is_enabled(event):
+    """Check if RT integration is enabled for the event."""
+    return "pretalx_rt" in event.plugin_list
+
+
+def needs_sync(ticket, event):
+    """Check if a ticket needs to be synced based on the sync interval."""
+    if ticket.sync_timestamp is None:
+        return True
+
+    interval = timedelta(minutes=int(event.settings.rt_sync_interval))
+    return (now() - ticket.sync_timestamp) > interval

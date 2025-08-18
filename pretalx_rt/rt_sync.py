@@ -128,18 +128,6 @@ class RTSync:
         ticket.sync_timestamp = now()
         ticket.save()
 
-    def is_enabled(self) -> bool:
-        """Check if RT integration is enabled for the event."""
-        return "pretalx_rt" in self.event.plugin_list
-
-    def needs_sync(self, ticket) -> bool:
-        """Check if a ticket needs to be synced based on the sync interval."""
-        if ticket.sync_timestamp is None:
-            return True
-
-        interval = timedelta(minutes=int(self.event.settings.rt_sync_interval))
-        return (now() - ticket.sync_timestamp) > interval
-
     def requestors(self, users):
         """Format user information for RT requestors field."""
         return [f"{user.name.replace('@', '(at)')} <{user.email}>" for user in users]

@@ -29,5 +29,4 @@ class PluginApp(AppConfig):
         category = "INTEGRATION"
 
     def ready(self):
-        from . import sync_signals  # NOQA
-        from . import ui_signals  # NOQA
+        from . import signals  # NOQA
