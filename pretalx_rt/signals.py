@@ -20,17 +20,7 @@ from rt.rest2 import Attachment, Rt
 
 from .forms import RTForm
 from .models import Ticket
-from .rt_sync import (
-    create_rt_mail,
-    create_rt_mail_ticket,
-    create_rt_submission_ticket,
-    is_rt_enabled,
-    needs_sync,
-    pretalx_rt_pull,
-    pretalx_rt_push,
-    requestors,
-    get_rt_client,
-)
+from .rt_sync import RTSync
 
 logger = logging.getLogger(__name__)
 
@@ -123,11 +113,7 @@ except ImportError:
 @receiver(periodic_task)
 @minimum_interval(minutes_after_success=5)
 def pretalx_rt_periodic_pull(sender, **kwargs):
-    """Periodically pull updates from RT for existing tickets.
-
-    Processes tickets in order of last sync time, stopping after 1 minute
-    to avoid long-running tasks.
-    """
+    """Periodically pull updates from RT for existing tickets."""
     logger.debug("Starting periodic RT ticket sync")
     start = now()
 
@@ -139,40 +125,36 @@ def pretalx_rt_periodic_pull(sender, **kwargs):
             return
 
         event = ticket.submission.event
-        if not is_rt_enabled(event):
+        rt_sync = RTSync(event)
+        if not rt_sync.is_enabled():
             continue
 
-        if needs_sync(ticket, event):
-            pretalx_rt_pull(event, ticket)
+        if rt_sync.needs_sync(ticket):
+            rt_sync.pull(ticket)
 
 
 @receiver(submission_state_change)
 def pretalx_rt_submission_state_change(sender, submission, old_state, user, **kwargs):
-    """Handle submission state changes by creating or updating RT tickets.
-
-    Creates a new RT ticket if none exists, otherwise updates the existing one.
-    """
+    """Handle submission state changes by creating or updating RT tickets."""
     logger.info(f"Submission state change: {submission.code} > {submission.state}")
 
-    if not is_rt_enabled(sender):
+    rt_sync = RTSync(sender)
+    if not rt_sync.is_enabled():
         return
 
     ticket = getattr(submission, "rt_ticket", None)
     if ticket is None:
-        ticket = create_rt_submission_ticket(sender, submission)
-    pretalx_rt_push(sender, ticket)
+        ticket = rt_sync.create_submission_ticket(submission)
+    rt_sync.push(ticket)
 
 
 @receiver(queuedmail_pre_send)
 def pretalx_rt_queuedmail_pre_send(sender, mail, **kwargs):
-    """Handle outgoing mail by creating RT tickets and replies.
-
-    If the mail is related to a submission, uses or creates that submission's ticket.
-    Otherwise creates a new standalone mail ticket.
-    """
+    """Handle outgoing mail by creating RT tickets and replies."""
     logger.debug("Processing outgoing mail")
 
-    if not is_rt_enabled(sender):
+    rt_sync = RTSync(sender)
+    if not rt_sync.is_enabled():
         return
 
     ticket = None
@@ -182,26 +164,24 @@ def pretalx_rt_queuedmail_pre_send(sender, mail, **kwargs):
         submission = mail.submissions.first()
         ticket = getattr(submission, "rt_ticket", None)
         if ticket is None:
-            ticket = create_rt_submission_ticket(sender, submission)
+            ticket = rt_sync.create_submission_ticket(submission)
 
     # Create standalone mail ticket if no submission ticket exists
     if ticket is None:
-        ticket = create_rt_mail_ticket(sender, mail)
+        ticket = rt_sync.create_mail_ticket(mail)
 
-    create_rt_mail(sender, ticket, mail)
+    rt_sync.add_mail_to_ticket(ticket, mail)
 
 
 @receiver(pre_save, sender=Submission)
 def pretalx_rt_submission_pre_save(sender, instance, **kwargs):
-    """Update RT ticket when submission is saved.
-
-    Only processes existing submissions that have RT tickets and RT enabled.
-    """
+    """Update RT ticket when submission is saved."""
     if not instance.pk:
         return
 
-    if not is_rt_enabled(instance.event):
+    rt_sync = RTSync(instance.event)
+    if not rt_sync.is_enabled():
         return
 
     if ticket := getattr(instance, "rt_ticket", None):
-        pretalx_rt_push(instance.event, ticket)
+        rt_sync.push(ticket)
