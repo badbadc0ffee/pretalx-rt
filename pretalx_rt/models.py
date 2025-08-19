@@ -1,6 +1,6 @@
 from django.db import models
-from django.utils.translation import gettext_lazy as _
 from django.utils.safestring import mark_safe
+from django.utils.translation import gettext_lazy as _
 
 
 class Ticket(models.Model):
@@ -41,7 +41,6 @@ class Ticket(models.Model):
     sync_timestamp = models.DateTimeField(
         auto_now_add=True,
     )
-
 
     @property
     def status_class(self):

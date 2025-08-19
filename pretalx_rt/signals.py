@@ -13,7 +13,7 @@ from pretalx.common.signals import (
 )
 from pretalx.mail.signals import queuedmail_pre_send
 from pretalx.orga.signals import mail_form, nav_event_settings, submission_form
-from pretalx.submission.models import Submission
+from pretalx.submission.models import Submission, SubmissionComment
 
 from .forms import RTForm
 from .models import Ticket
@@ -160,6 +160,22 @@ def pretalx_rt_queuedmail_pre_send(sender, mail, **kwargs):
     rt_sync.add_mail_to_ticket(ticket, mail)
 
 
+@receiver(post_save, sender=SubmissionComment)
+def pretalx_rt_submission_comment_saved(sender, instance, created, **kwargs):
+    """Handle saving of submission comments by updating RT tickets."""
+    if not is_enabled(instance.event):
+        return
+
+    rt_sync = RTSync(instance.event)
+
+    ticket = getattr(instance.submission, "rt_ticket", None)
+    if ticket is None:
+        ticket = rt_sync.create_submission_ticket(instance.submission)
+
+    if created:
+        rt_sync.add_comment_to_ticket(ticket, instance)
+
+
 @receiver(post_save, sender=Submission)
 def pretalx_rt_submission_changed(sender, instance, **kwargs):
     """Update or create RT ticket when submission is saved."""
@@ -172,7 +188,9 @@ def pretalx_rt_submission_changed(sender, instance, **kwargs):
     if ticket is None:
         ticket = rt_sync.create_submission_ticket(instance)
 
-    ticket_push_task.apply_async(kwargs={"event_id": instance.event.pk, "ticket_id": ticket.pk})
+    ticket_push_task.apply_async(
+        kwargs={"event_id": instance.event.pk, "ticket_id": ticket.pk}
+    )
 
 
 @receiver(m2m_changed, sender=Submission.speakers.through)
@@ -190,7 +208,9 @@ def pretalx_rt_submission_speaker_changed(sender, instance, action, **kwargs):
     if ticket is None:
         ticket = rt_sync.create_submission_ticket(instance)
 
-    ticket_push_task.apply_async(kwargs={"event_id": instance.event.pk, "ticket_id": ticket.pk})
+    ticket_push_task.apply_async(
+        kwargs={"event_id": instance.event.pk, "ticket_id": ticket.pk}
+    )
 
 
 def is_enabled(event):

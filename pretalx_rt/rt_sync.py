@@ -96,6 +96,27 @@ class RTSync:
                 Status=old_ticket["Status"],
             )
 
+    def add_comment_to_ticket(self, ticket, comment):
+        """Add a comment to an RT ticket."""
+        self.logger.info(f"Adding comment to RT ticket {ticket.id}")
+        old_ticket = self.rt.get_ticket(ticket.id)
+        from pretalx.common.templatetags.rich_text import rich_text
+
+        try:
+            self.rt.comment(
+                ticket.id,
+                content=f"<p><b>{comment.user} &lt;{comment.user.email}&gt;:</b></p>"
+                + rich_text(comment.text),
+                content_type="text/html",
+            )
+        finally:
+            self.rt.edit_ticket(
+                ticket.id,
+                Requestor=old_ticket["Requestor"],
+                Subject=old_ticket["Subject"],
+                Status=old_ticket["Status"],
+            )
+
     def push(self, ticket):
         """Push updates from pretalx to RT ticket."""
         if not ticket.submission:
