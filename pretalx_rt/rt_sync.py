@@ -9,12 +9,16 @@ from .models import Ticket
 
 
 class RTSync:
-    def __init__(self, event):
+    def __init__(self, event, user=None):
         self.event = event
         self.logger = logging.getLogger(__name__)
+        if user and user.rt_settings.rest_auth_token:
+            token = user.rt_settings.rest_auth_token
+        else:
+            token = event.rt_settings.rest_auth_token
         self.rt = Rt(
             url=event.rt_settings.rest_api_url,
-            token=event.rt_settings.rest_auth_token,
+            token=token,
         )
 
     def create_submission_ticket(self, submission):
@@ -104,8 +108,7 @@ class RTSync:
         try:
             self.rt.comment(
                 ticket.rt_id,
-                content=f"<p><b>{comment.user} &lt;{comment.user.email}&gt;:</b></p>"
-                + rich_text(comment.text),
+                content=rich_text(comment.text),
                 content_type="text/html",
             )
         finally:

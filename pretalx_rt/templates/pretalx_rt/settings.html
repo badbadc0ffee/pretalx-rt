@@ -4,6 +4,12 @@
 {% block extra_title %}RT Settings :: {% endblock extra_title %}
 
 {% block content %}
-    <h2>RT Event Settings</h2>
-    {% include "orga/includes/base_form.html" %}
+    <h2>{% translate "RT Event Settings" %}</h2>
+    <fieldset>
+        {% include "orga/includes/base_form.html" with form=event_settings submit_name="form" submit_value="event" %}
+    </fieldset>
+    <fieldset>
+        <h2>{% translate "RT User Settings" %}</h2>
+        {% include "orga/includes/base_form.html" with form=user_settings  submit_name="form" submit_value="user" %}
+    <fieldset>
 {% endblock content %}

@@ -14,7 +14,7 @@ class EventSettings(models.Model):
         help_text=_("Base URL for Request Tracker."),
     )
     rest_auth_token = models.CharField(
-        verbose_name=_("API Token"),
+        verbose_name=_("Auth Token"),
         help_text=_("Authorization token for Request Tracker REST 2.0 API."),
     )
     queue = models.CharField(
@@ -50,6 +50,22 @@ class EventSettings(models.Model):
     @property
     def rest_api_url(self):
         return self.base_url + "REST/2.0/"
+
+
+class UserSettings(models.Model):
+    event = models.ForeignKey(
+        to="event.Event",
+        on_delete=models.CASCADE,
+    )
+    user = models.OneToOneField(
+        to="person.User",
+        on_delete=models.CASCADE,
+        related_name="rt_settings",
+    )
+    rest_auth_token = models.CharField(
+        verbose_name=_("Auth Token"),
+        help_text=_("Authorization token for Request Tracker REST 2.0 API."),
+    )
 
 
 class Ticket(models.Model):

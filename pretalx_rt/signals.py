@@ -166,7 +166,7 @@ def pretalx_rt_submission_comment_saved(sender, instance, created, **kwargs):
     if not is_enabled(instance.event):
         return
 
-    rt_sync = RTSync(instance.event)
+    rt_sync = RTSync(instance.event, instance.user)
 
     ticket = getattr(instance.submission, "rt_ticket", None)
     if ticket is None:

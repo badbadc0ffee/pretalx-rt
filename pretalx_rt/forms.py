@@ -5,7 +5,7 @@ from pretalx.common.forms.widgets import TextInputWithAddon
 from pretalx.mail.models import QueuedMail
 from pretalx.submission.models import Submission
 
-from .models import EventSettings, Ticket
+from .models import EventSettings, Ticket, UserSettings
 
 
 class SettingsForm(forms.ModelForm):
@@ -13,23 +13,13 @@ class SettingsForm(forms.ModelForm):
         label=_("Auth Token"),
         required=False,
         widget=forms.PasswordInput(attrs={"placeholder": "1-23-45678 ... 45"}),
-        help_text=_(
-            "Authorization token for Request Tracker REST 2.0 API. Leave empty to keep current token."
-        ),
+        help_text=_("Authorization token for Request Tracker REST 2.0 API."),
     )
     new_auth_token_repeat = forms.CharField(
         label=_("Auth Token (again)"),
         required=False,
         widget=forms.PasswordInput(),
     )
-
-    def __init__(self, *args, event, **kwargs):
-        self.instance, _ = EventSettings.objects.get_or_create(event=event)
-        if key := self.instance.rest_auth_token:
-            self.declared_fields["new_auth_token"].widget.attrs["placeholder"] = (
-                key[:10] + " ... " + key[-2:]
-            )
-        super().__init__(*args, **kwargs, instance=self.instance)
 
     def clean(self):
         data = super().clean()
@@ -48,12 +38,36 @@ class SettingsForm(forms.ModelForm):
             self.instance.rest_auth_token = self.cleaned_data.get("rest_auth_token")
         return super().save()
 
+
+class EventSettingsForm(SettingsForm):
+    def __init__(self, *args, event, **kwargs):
+        self.instance, _ = EventSettings.objects.get_or_create(event=event)
+        if key := self.instance.rest_auth_token:
+            self.declared_fields["new_auth_token"].widget.attrs["placeholder"] = (
+                key[:10] + " ... " + key[-2:]
+            )
+        super().__init__(*args, **kwargs, instance=self.instance)
+
     class Meta:
         model = EventSettings
         exclude = ["event", "rest_auth_token"]
         widgets = {
             "sync_interval": TextInputWithAddon(addon_after=_("minutes")),
         }
+
+
+class UserSettingsForm(SettingsForm):
+    def __init__(self, *args, event, user, **kwargs):
+        self.instance, _ = UserSettings.objects.get_or_create(event=event, user=user)
+        if key := self.instance.rest_auth_token:
+            self.declared_fields["new_auth_token"].widget.attrs["placeholder"] = (
+                key[:10] + " ... " + key[-2:]
+            )
+        super().__init__(*args, **kwargs, instance=self.instance)
+
+    class Meta:
+        model = UserSettings
+        exclude = ["event", "user", "rest_auth_token"]
 
 
 class RTRenderer(TabularFormRenderer):
