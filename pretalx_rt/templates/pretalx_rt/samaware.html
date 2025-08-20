@@ -8,14 +8,13 @@
             <div class="input-group">
                 <div class="input-group-prepend">
                     <span class="input-group-text">
-                    {% comment %} <i class="fa fa-check-square-o"></i>&nbsp;&nbsp; {% endcomment %}
-                        <a href="{{ event.settings.rt_url }}Ticket/Display.html?id={{ ticket.id }}">#{{ ticket.id }}</a>
+                        <a href="{{ form.instance.url }}">#{{ form.instance.rt_id }}</a>
                     </span>
                 </div>
                 <input type="text" value="{{ ticket.subject }}" disabled>
                 <div class="input-group-append">
-                    <span class="input-group-text">
-                        {{ ticket.status }}
+                    <span class="input-group-text {{ form.instance.status_class }}">
+                        {{ form.instance.status_text }}
                     </span>
                 </div>
             </div>

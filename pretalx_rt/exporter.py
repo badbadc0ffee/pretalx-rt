@@ -36,7 +36,7 @@ class Exporter(CSVExporterMixin, BaseExporter):
                 title = ticket.submission.title
             data.append(
                 {
-                    "rt ticket": ticket.id,
+                    "rt ticket": ticket.rt_id,
                     "rt subject": ticket.subject,
                     "rt status": ticket.status,
                     "rt queue": ticket.queue,

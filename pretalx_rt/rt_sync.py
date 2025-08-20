@@ -3,7 +3,6 @@ import logging
 from django.utils.timezone import now
 from pretalx.celery_app import app
 from pretalx.event.models import Event
-from pretalx.person.models import User
 from rt.rest2 import Attachment, Rt
 
 from .models import Ticket
@@ -14,8 +13,8 @@ class RTSync:
         self.event = event
         self.logger = logging.getLogger(__name__)
         self.rt = Rt(
-            url=event.settings.rt_url + "REST/2.0/",
-            token=event.settings.rt_rest_api_key,
+            url=event.rt_settings.rest_api_url,
+            token=event.rt_settings.rest_auth_token,
         )
 
     def create_submission_ticket(self, submission):
@@ -23,18 +22,18 @@ class RTSync:
         self.logger.info(f"Creating RT ticket for submission {submission.code}")
 
         id = self.rt.create_ticket(
-            queue=self.event.settings.rt_queue,
+            queue=self.event.rt_settings.queue,
             subject=submission.title,
             Requestor=self.requestors(submission.speakers.all()),
-            Status=self.event.settings.rt_initial_status,
+            Status=self.event.rt_settings.initial_status,
             Owner="Nobody",
             CustomFields={
-                self.event.settings.rt_custom_field_id: submission.code,
-                self.event.settings.rt_custom_field_state: submission.state,
+                self.event.rt_settings.custom_field_id: submission.code,
+                self.event.rt_settings.custom_field_state: submission.state,
             },
         )
 
-        ticket = Ticket(id=id, submission=submission)
+        ticket = Ticket(event=self.event, rt_id=id, submission=submission)
         self.pull(ticket)
         return ticket
 
@@ -43,25 +42,25 @@ class RTSync:
         self.logger.info("Creating RT ticket for standalone mail")
 
         id = self.rt.create_ticket(
-            queue=self.event.settings.rt_queue,
+            queue=self.event.rt_settings.queue,
             subject=mail.subject,
             Requestor=self.requestors(mail.to_users.all()),
-            Status=self.event.settings.rt_initial_status,
+            Status=self.event.rt_settings.initial_status,
             Owner="Nobody",
         )
 
-        ticket = Ticket(id=id)
+        ticket = Ticket(event=self.event, rt_id=id)
         self.pull(ticket)
         return ticket
 
     def add_mail_to_ticket(self, ticket, mail):
         """Add a mail as a reply to an RT ticket."""
-        self.logger.info(f"Adding mail to RT ticket {ticket.id}")
-        old_ticket = self.rt.get_ticket(ticket.id)
+        self.logger.info(f"Adding mail to RT ticket {ticket.rt_id}")
+        old_ticket = self.rt.get_ticket(ticket.rt_id)
 
         try:
             self.rt.edit_ticket(
-                ticket.id,
+                ticket.rt_id,
                 Requestor=self.requestors(mail.to_users.all()),
                 Subject=mail.subject,
             )
@@ -75,9 +74,9 @@ class RTSync:
                 for att in mail.attachments or []
             ]
 
-            html = self.event.settings.rt_mail_html
+            html = self.event.rt_settings.is_mail_html
             self.rt.reply(
-                ticket.id,
+                ticket.rt_id,
                 content=mail.make_html() if html else mail.make_text(),
                 content_type="text/html" if html else "text/plain",
                 attachments=attachments,
@@ -90,7 +89,7 @@ class RTSync:
 
         finally:
             self.rt.edit_ticket(
-                ticket.id,
+                ticket.rt_id,
                 Requestor=old_ticket["Requestor"],
                 Subject=old_ticket["Subject"],
                 Status=old_ticket["Status"],
@@ -98,20 +97,20 @@ class RTSync:
 
     def add_comment_to_ticket(self, ticket, comment):
         """Add a comment to an RT ticket."""
-        self.logger.info(f"Adding comment to RT ticket {ticket.id}")
-        old_ticket = self.rt.get_ticket(ticket.id)
+        self.logger.info(f"Adding comment to RT ticket {ticket.rt_id}")
+        old_ticket = self.rt.get_ticket(ticket.rt_id)
         from pretalx.common.templatetags.rich_text import rich_text
 
         try:
             self.rt.comment(
-                ticket.id,
+                ticket.rt_id,
                 content=f"<p><b>{comment.user} &lt;{comment.user.email}&gt;:</b></p>"
                 + rich_text(comment.text),
                 content_type="text/html",
             )
         finally:
             self.rt.edit_ticket(
-                ticket.id,
+                ticket.rt_id,
                 Requestor=old_ticket["Requestor"],
                 Subject=old_ticket["Subject"],
                 Status=old_ticket["Status"],
@@ -122,15 +121,15 @@ class RTSync:
         if not ticket.submission:
             return
 
-        self.logger.info(f"Pushing updates to RT ticket {ticket.id}")
+        self.logger.info(f"Pushing updates to RT ticket {ticket.rt_id}")
 
         self.rt.edit_ticket(
-            ticket.id,
+            ticket.rt_id,
             Subject=ticket.submission.title,
             Requestor=self.requestors(ticket.submission.speakers.all()),
             CustomFields={
-                self.event.settings.rt_custom_field_id: ticket.submission.code,
-                self.event.settings.rt_custom_field_state: ticket.submission.state,
+                self.event.rt_settings.custom_field_id: ticket.submission.code,
+                self.event.rt_settings.custom_field_state: ticket.submission.state,
             },
         )
         ticket_pull_task.apply_async(
@@ -139,16 +138,12 @@ class RTSync:
 
     def pull(self, ticket):
         """Pull updates from RT ticket to pretalx."""
-        self.logger.info(f"Pulling updates from RT ticket {ticket.id}")
-        rt_ticket = self.rt.get_ticket(ticket.id)
+        self.logger.info(f"Pulling updates from RT ticket {ticket.rt_id}")
+        rt_ticket = self.rt.get_ticket(ticket.rt_id)
 
         ticket.subject = rt_ticket["Subject"]
         ticket.status = rt_ticket["Status"]
         ticket.queue = rt_ticket["Queue"]["Name"]
-
-        for requestor in rt_ticket["Requestor"]:
-            for user in User.objects.filter(email=requestor["id"]):
-                ticket.users.add(user.id)
 
         ticket.sync_timestamp = now()
         ticket.save()

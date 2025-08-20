@@ -1,69 +1,59 @@
 from django import forms
 from django.utils.translation import gettext_lazy as _
-from hierarkey.forms import HierarkeyForm
 from pretalx.common.forms.renderers import TabularFormRenderer
+from pretalx.common.forms.widgets import TextInputWithAddon
 from pretalx.mail.models import QueuedMail
 from pretalx.submission.models import Submission
 
-from .models import Ticket
+from .models import EventSettings, Ticket
 
 
-class SettingsForm(HierarkeyForm):
-    rt_url = forms.URLField(
-        label=_("Base URL"),
-        widget=forms.URLInput(attrs={"placeholder": "https://tracker.example.com/"}),
-        help_text=_("Base URL for Request Tracker"),
-    )
-
-    rt_rest_api_key = forms.CharField(
-        label=_("API Token"),
-        widget=forms.PasswordInput(
-            attrs={"placeholder": "1-23-45678901234567890123456789012345"},
-        ),
-        help_text=_("Authorization token for Request Tracker REST 2.0 API"),
-    )
-
-    rt_queue = forms.CharField(
-        label=_("Queue"),
-        help_text=_("RT Queue for this event"),
-    )
-
-    rt_initial_status = forms.CharField(
-        label=_("Initial state"),
-        help_text=_("Initial RT status for newly created tickets"),
-        initial="resolved",
-    )
-
-    rt_custom_field_id = forms.CharField(
-        label=_("Custom field for pretalx ID"),
-        help_text=_("Custom field in RT to store reference to pretalx ID"),
-        initial="Pretalx ID",
-    )
-
-    rt_custom_field_state = forms.CharField(
-        label=_("Custom field for pretalx state"),
-        help_text=_("Custom field in RT to store pretalx state"),
-        initial="Pretalx State",
-    )
-
-    rt_mail_html = forms.BooleanField(
-        label=_("Send HTML mails"),
-        help_text=_("Let RT send out mails in HTML markup"),
-        initial=True,
+class SettingsForm(forms.ModelForm):
+    new_auth_token = forms.CharField(
+        label=_("Auth Token"),
         required=False,
+        widget=forms.PasswordInput(attrs={"placeholder": "1-23-45678 ... 45"}),
+        help_text=_(
+            "Authorization token for Request Tracker REST 2.0 API. Leave empty to keep current token."
+        ),
+    )
+    new_auth_token_repeat = forms.CharField(
+        label=_("Auth Token (again)"),
+        required=False,
+        widget=forms.PasswordInput(),
     )
 
-    rt_sync_interval = forms.IntegerField(
-        label=_("Sync interval"),
-        help_text=_("Minimum interval in minutes to sync RT tickets"),
-        initial=30,
-    )
+    def __init__(self, *args, event, **kwargs):
+        self.instance, _ = EventSettings.objects.get_or_create(event=event)
+        if key := self.instance.rest_auth_token:
+            self.declared_fields["new_auth_token"].widget.attrs["placeholder"] = (
+                key[:10] + " ... " + key[-2:]
+            )
+        super().__init__(*args, **kwargs, instance=self.instance)
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        event = kwargs.get("obj")
-        if not event.settings.rt_queue:
-            self.fields["rt_queue"].initial = event.slug
+    def clean(self):
+        data = super().clean()
+        new_auth_token = self.cleaned_data.get("new_auth_token")
+        new_auth_token_repeat = self.cleaned_data.get("new_auth_token_repeat")
+        if new_auth_token:
+            if new_auth_token == new_auth_token_repeat:
+                data["rest_auth_token"] = new_auth_token
+                self.changed_data.append("rest_auth_token")
+            else:
+                self.add_error("new_auth_token_repeat", "Auth tokens do not match.")
+        return data
+
+    def save(self):
+        if "rest_auth_token" in self.changed_data:
+            self.instance.rest_auth_token = self.cleaned_data.get("rest_auth_token")
+        return super().save()
+
+    class Meta:
+        model = EventSettings
+        exclude = ["event", "rest_auth_token"]
+        widgets = {
+            "sync_interval": TextInputWithAddon(addon_after=_("minutes")),
+        }
 
 
 class RTRenderer(TabularFormRenderer):

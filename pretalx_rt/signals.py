@@ -223,5 +223,5 @@ def needs_sync(ticket, event):
     if ticket.sync_timestamp is None:
         return True
 
-    interval = timedelta(minutes=int(event.settings.rt_sync_interval))
+    interval = timedelta(minutes=int(event.rt_settings.sync_interval))
     return (now() - ticket.sync_timestamp) > interval

@@ -19,11 +19,10 @@ class SettingsView(PermissionRequired, FormView):
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
-        return {"obj": self.request.event, "attribute_name": "settings", **kwargs}
+        kwargs["event"] = self.request.event
+        return kwargs
 
     def form_valid(self, form):
         form.save()
-        messages.success(
-            self.request, _("The pretalx RT plugin settings were updated.")
-        )
+        messages.success(self.request, _("The pretalx RT event settings were updated."))
         return super().form_valid(form)

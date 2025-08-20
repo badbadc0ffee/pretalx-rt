@@ -8,7 +8,7 @@
             <div class="input-group-prepend">
                 <span class="input-group-text">
                     <i class="fa fa-check-square-o" title="last sync: {{ form.instance.sync_timestamp|naturaltime }}"></i>&nbsp;&nbsp;
-                    <a href="{{ form.event.settings.rt_url }}Ticket/Display.html?id={{ form.instance.id }}">{{ form.instance.id }}</a>
+                    <a href="{{ form.instance.url }}">#{{ form.instance.rt_id }}</a>
                 </span>
             </div>
             <input type="text" value="{{ form.instance.subject }}" disabled>
