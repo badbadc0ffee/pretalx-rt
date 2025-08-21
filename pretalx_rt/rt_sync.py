@@ -12,10 +12,13 @@ class RTSync:
     def __init__(self, event, user=None):
         self.event = event
         self.logger = logging.getLogger(__name__)
-        if user and hasattr(user, "rt_settings") and user.rt_settings.rest_auth_token:
-            token = user.rt_settings.rest_auth_token
-        else:
-            token = event.rt_settings.rest_auth_token
+        token = (
+            user.rt_settings.rest_auth_token
+            if user
+            and hasattr(user, "rt_settings")
+            and user.rt_settings.rest_auth_token
+            else event.rt_settings.rest_auth_token
+        )
         self.rt = Rt(
             url=event.rt_settings.rest_api_url,
             token=token,
@@ -174,11 +177,16 @@ class RTSync:
             s.code: s for s in self.event.submissions.prefetch_related("speakers").all()
         }
 
-        existing_tickets = {
+        existing_tickets_by_rt = {
             t.rt_id: t
             for t in Ticket.objects.filter(event=self.event).select_related(
                 "submission"
             )
+        }
+        existing_tickets_by_submission = {
+            t.submission_id: t
+            for t in existing_tickets_by_rt.values()
+            if t.submission_id
         }
 
         tickets = list(self.rt.search(queue_name))
@@ -201,10 +209,8 @@ class RTSync:
                 )
                 continue
 
-            ticket = Ticket.objects.filter(
-                event=self.event, submission=submission
-            ).first()
-            if ticket:
+            if submission.id in existing_tickets_by_submission:
+                ticket = existing_tickets_by_submission[submission.id]
                 if ticket.rt_id == int(rt_ticket["id"]):
                     self.logger.debug(
                         f"Skipping RT #{rt_ticket['id']}: Submission '{pretalx_id}' already linked."
@@ -215,31 +221,25 @@ class RTSync:
                     )
                 continue
 
-            ticket = existing_tickets.get(rt_ticket["id"])
-            if ticket:
-                ticket.submission = submission
-                ticket.save()
-                updated_tickets += 1
-                self.logger.info(
-                    f"Linked RT #{rt_ticket['id']} to Submission '{submission.code}'"
-                )
-                self.push(ticket)
-            else:
-                ticket = Ticket(
-                    event=self.event,
-                    rt_id=rt_ticket["id"],
-                    submission=submission,
-                )
-                ticket.save()
+            ticket, created = Ticket.objects.update_or_create(
+                rt_id=rt_ticket["id"],
+                defaults={"event": self.event, "submission": submission},
+            )
+            if created:
                 new_tickets += 1
                 self.logger.info(
                     f"Created RT #{rt_ticket['id']} for Submission '{submission.code}'"
                 )
-                self.push(ticket)
+            else:
+                updated_tickets += 1
+                self.logger.info(
+                    f"Updated RT #{rt_ticket['id']} with Submission '{submission.code}'"
+                )
+
+            self.push(ticket)
 
         self.logger.info(
-            f"Synced {total} tickets of queue '{queue_name}': "
-            f"{updated_tickets} tickets updated, {new_tickets} tickets new."
+            f"Synced {total} tickets of queue '{queue_name}': {updated_tickets} updated, {new_tickets} new."
         )
 
 
