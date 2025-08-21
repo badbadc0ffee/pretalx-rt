@@ -6,6 +6,7 @@ from pretalx.mail.models import QueuedMail
 from pretalx.submission.models import Submission
 
 from .models import EventSettings, Ticket, UserSettings
+from .rt_sync import RTSync
 
 
 class SettingsForm(forms.ModelForm):
@@ -47,6 +48,29 @@ class EventSettingsForm(SettingsForm):
                 key[:10] + " ... " + key[-2:]
             )
         super().__init__(*args, **kwargs, instance=self.instance)
+        self.fields["queue"].choices = [
+            (q, q) for q in RTSync(event=event).get_queues()
+        ]
+        self.fields["custom_field_id"].choices = [
+            (q, q) for q in RTSync(event=event).get_custom_fields()
+        ]
+        self.fields["custom_field_state"].choices = [
+            (q, q) for q in RTSync(event=event).get_custom_fields()
+        ]
+
+    queue = forms.ChoiceField(
+        label=_("Queue"),
+        choices=[],
+        required=True,
+    )
+    custom_field_id = forms.ChoiceField(
+        label=_("Custom field for pretalx ID"),
+        help_text=_("Custom field in RT to store reference to pretalx ID."),
+    )
+    custom_field_state = forms.ChoiceField(
+        label=_("Custom field for pretalx state"),
+        help_text=_("Custom field in RT to store pretalx state."),
+    )
 
     class Meta:
         model = EventSettings

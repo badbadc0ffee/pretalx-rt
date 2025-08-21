@@ -24,6 +24,15 @@ class RTSync:
             token=token,
         )
 
+    def get_queues(self):
+        queues = self.rt.get_all_queues()
+        return [q.get("Name") for q in queues or [] if "Name" in q]
+
+    def get_custom_fields(self):
+        queue_data = self.rt.get_queue(self.event.rt_settings.queue)
+        ticket_custom_fields = queue_data.get("TicketCustomFields", [])
+        return [cf.get("name") for cf in ticket_custom_fields or [] if "name" in cf]
+
     def create_submission_ticket(self, submission):
         """Create a new RT ticket for a submission."""
         self.logger.info(f"Creating RT ticket for submission {submission.code}")
