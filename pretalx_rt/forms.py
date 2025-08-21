@@ -50,13 +50,13 @@ class EventSettingsForm(SettingsForm):
         super().__init__(*args, **kwargs, instance=self.instance)
         self.fields["queue"].choices = [
             (q, q) for q in RTSync(event=event).get_queues()
-        ]
+        ] + [("unknown", "unknown")]
         self.fields["custom_field_id"].choices = [
             (q, q) for q in RTSync(event=event).get_custom_fields()
-        ]
+        ] + [("unknown", "unknown")]
         self.fields["custom_field_state"].choices = [
             (q, q) for q in RTSync(event=event).get_custom_fields()
-        ]
+        ] + [("unknown", "unknown")]
 
     queue = forms.ChoiceField(
         label=_("Queue"),

@@ -25,13 +25,21 @@ class RTSync:
         )
 
     def get_queues(self):
-        queues = self.rt.get_all_queues()
-        return [q.get("Name") for q in queues or [] if "Name" in q]
+        try:
+            queues = self.rt.get_all_queues()
+            return [q.get("Name") for q in queues or [] if "Name" in q]
+        except Exception as e:
+            self.logger.error(f"Failed to fetch RT queues: {e}")
+            return []
 
     def get_custom_fields(self):
-        queue_data = self.rt.get_queue(self.event.rt_settings.queue)
-        ticket_custom_fields = queue_data.get("TicketCustomFields", [])
-        return [cf.get("name") for cf in ticket_custom_fields or [] if "name" in cf]
+        try:
+            queue_data = self.rt.get_queue(self.event.rt_settings.queue)
+            ticket_custom_fields = queue_data.get("TicketCustomFields", [])
+            return [cf.get("name") for cf in ticket_custom_fields or [] if "name" in cf]
+        except Exception as e:
+            self.logger.error(f"Failed to fetch custom fields: {e}")
+            return []
 
     def create_submission_ticket(self, submission):
         """Create a new RT ticket for a submission."""
