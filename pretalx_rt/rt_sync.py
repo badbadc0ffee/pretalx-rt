@@ -146,15 +146,21 @@ class RTSync:
 
         self.logger.info(f"Pushing updates to RT #{ticket.rt_id}")
 
-        self.rt.edit_ticket(
-            ticket.rt_id,
-            Subject=ticket.submission.title,
-            Requestor=self.requestors(ticket.submission.speakers.all()),
-            CustomFields={
-                self.event.rt_settings.custom_field_id: ticket.submission.code,
-                self.event.rt_settings.custom_field_state: ticket.submission.state,
-            },
-        )
+        try:
+            self.rt.edit_ticket(
+                ticket.rt_id,
+                Subject=ticket.submission.title,
+                Requestor=self.requestors(ticket.submission.speakers.all()),
+                CustomFields={
+                    self.event.rt_settings.custom_field_id: ticket.submission.code,
+                    self.event.rt_settings.custom_field_state: ticket.submission.state,
+                },
+            )
+        except Exception as e:
+            # Unfortunately, even if the update fails because of missing permissions,
+            # RT still returns a 200 OK response, so we have to check the result.
+            self.logger.error(f"Failed to push RT ticket #{ticket.rt_id}: {e}")
+            return
         ticket_pull_task.apply_async(
             kwargs={"event_id": self.event.pk, "ticket_id": ticket.pk}
         )
@@ -162,7 +168,11 @@ class RTSync:
     def pull(self, ticket):
         """Pull updates from RT ticket to pretalx."""
         self.logger.info(f"Pulling updates from RT #{ticket.rt_id}")
-        rt_ticket = self.rt.get_ticket(ticket.rt_id)
+        try:
+            rt_ticket = self.rt.get_ticket(ticket.rt_id)
+        except Exception as e:
+            self.logger.error(f"Failed to pull RT ticket #{ticket.rt_id}: {e}")
+            return
 
         ticket.subject = rt_ticket["Subject"]
         ticket.status = rt_ticket["Status"]
