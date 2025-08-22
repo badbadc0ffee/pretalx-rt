@@ -50,16 +50,25 @@ class EventSettingsForm(SettingsForm):
         super().__init__(*args, **kwargs, instance=self.instance)
         queues = RTSync(event=event).get_queues()
         if not queues:
-            queues = [ event.rt_settings.queue or "Default" ]
-            self.fields["queue"].help_text += " <i class='fa fa-warning text-warning' aria-hidden='true'></i> No RT queues accessible. Please check your RT permissions."
+            queues = [event.rt_settings.queue or "Default"]
+            self.fields[
+                "queue"
+            ].help_text += " <i class='fa fa-warning text-warning' aria-hidden='true'></i> No RT queues accessible. Please check your RT permissions."
             self.fields["queue"].widget.attrs["readonly"] = True
             self.fields["initial_status"].widget.attrs["readonly"] = True
         self.fields["queue"].choices = [(q, q) for q in queues]
         custom_fields = RTSync(event=event).get_custom_fields()
         if not custom_fields:
-            custom_fields = [event.rt_settings.custom_field_id, event.rt_settings.custom_field_state]
-            self.fields["custom_field_id"].help_text += " <i class='fa fa-warning text-warning' aria-hidden='true'></i> No custom fields accessible. Please check your RT permissions."
-            self.fields["custom_field_state"].help_text += " <i class='fa fa-warning text-warning' aria-hidden='true'></i> No custom fields accessible. Please check your RT permissions."
+            custom_fields = [
+                event.rt_settings.custom_field_id,
+                event.rt_settings.custom_field_state,
+            ]
+            self.fields[
+                "custom_field_id"
+            ].help_text += " <i class='fa fa-warning text-warning' aria-hidden='true'></i> No custom fields accessible. Please check your RT permissions."
+            self.fields[
+                "custom_field_state"
+            ].help_text += " <i class='fa fa-warning text-warning' aria-hidden='true'></i> No custom fields accessible. Please check your RT permissions."
             self.fields["custom_field_id"].widget.attrs["readonly"] = True
             self.fields["custom_field_state"].widget.attrs["readonly"] = True
         self.fields["custom_field_id"].choices = [(q, q) for q in custom_fields]
