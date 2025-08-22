@@ -97,7 +97,7 @@ class EventSettingsForm(SettingsForm):
 
 
 class UserSettingsForm(SettingsForm):
-    def __init__(self, *args, event, user, **kwargs):
+    def __init__(self, event, user, *args, **kwargs):
         self.instance, _ = UserSettings.objects.get_or_create(event=event, user=user)
         if key := self.instance.rest_auth_token:
             self.declared_fields["new_auth_token"].widget.attrs["placeholder"] = (

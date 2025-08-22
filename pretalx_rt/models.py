@@ -57,7 +57,7 @@ class UserSettings(models.Model):
         to="event.Event",
         on_delete=models.CASCADE,
     )
-    user = models.OneToOneField(
+    user = models.ForeignKey(
         to="person.User",
         on_delete=models.CASCADE,
         related_name="rt_settings",
