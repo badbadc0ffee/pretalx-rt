@@ -4,8 +4,8 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-04-24 12:28+0000\n"
-"Language: de_Formal\n"
+"POT-Creation-Date: 2025-08-24 17:46+0200\n"
+"Language: de_DE\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
@@ -25,9 +25,9 @@ msgid ""
 "adressed to a person instead."
 msgstr ""
 "Dieses Plugin erm&ouml;glicht es, den RT-Issue-Tracker zur Kommunikation mit "
-"den Personen zu nutzen, die Vortr&auml;ge eingereicht haben. "
-"Anstatt Benachrichtigungen wie &uuml;blich per SMTP zu versenden, werden mit "
-"pretalx RT alle Mitteilungen &uuml;ber RT verschickt – mit Ausnahme von "
+"den Personen zu nutzen, die Vortr&auml;ge eingereicht haben. Anstatt "
+"Benachrichtigungen wie &uuml;blich per SMTP zu versenden, werden mit pretalx "
+"RT alle Mitteilungen &uuml;ber RT verschickt – mit Ausnahme von "
 "Passwortr&uuml;cksetzungs-E-Mails. Diese werden weiterhin direkt per SMTP "
 "versendet.\n"
 "Informationen zum zugeh&ouml;rigen RT-Ticket werden in den Einreichungs- und "
@@ -39,98 +39,118 @@ msgstr ""
 "oder wenn eine Benachrichtigung nicht mit einer Einreichung verkn&uuml;pft "
 "ist, sondern direkt an eine Person gerichtet wird."
 
-#: pretalx_rt/forms.py:13
-msgid "Base URL"
-msgstr "Basis-URL"
+#: pretalx_rt/forms.py:14 pretalx_rt/models.py:17 pretalx_rt/models.py:66
+msgid "Auth Token"
+msgstr "Auth Token"
 
-#: pretalx_rt/forms.py:15
-msgid "Base URL for Request Tracker"
-msgstr "Basis-URL f&uuml;r den Request Tracker"
-
-#: pretalx_rt/forms.py:19
-msgid "API Token"
-msgstr "API Zugriffs-Token"
-
-#: pretalx_rt/forms.py:23
-msgid "Authorization token for Request Tracker REST 2.0 API"
+#: pretalx_rt/forms.py:17 pretalx_rt/models.py:18 pretalx_rt/models.py:67
+msgid "Authorization token for Request Tracker REST 2.0 API."
 msgstr "Autorisierungstoken f&uuml;r die Request Tracker REST 2.0 API"
 
-#: pretalx_rt/forms.py:27 pretalx_rt/models.py:23
+#: pretalx_rt/forms.py:20
+msgid "Auth Token (again)"
+msgstr "Auth Token (nochmal)"
+
+#: pretalx_rt/forms.py:78 pretalx_rt/models.py:21 pretalx_rt/models.py:93
 msgid "Queue"
 msgstr "Bereich"
 
-#: pretalx_rt/forms.py:28
-msgid "RT Queue for this event"
-msgstr "RT Bereich (Queue) f&uuml;r dieses Event"
+#: pretalx_rt/forms.py:83 pretalx_rt/models.py:30
+msgid "ID Field"
+msgstr "ID Feld"
 
-#: pretalx_rt/forms.py:32
+#: pretalx_rt/forms.py:84 pretalx_rt/models.py:31
+msgid "Custom field in RT to store reference to pretalx ID."
+msgstr "Benutzerdefiniertes Feld f&uuml;r die pretalx ID."
+
+#: pretalx_rt/forms.py:87 pretalx_rt/models.py:35
+msgid "State Field"
+msgstr "Status Feld"
+
+#: pretalx_rt/forms.py:88 pretalx_rt/models.py:36
+msgid "Custom field in RT to store pretalx state."
+msgstr "Benutzerdefiniertes Feld f&uuml;r den pretalx Status."
+
+#: pretalx_rt/forms.py:95
+msgid "minutes"
+msgstr "Minuten"
+
+#: pretalx_rt/models.py:13
+msgid "Base URL"
+msgstr "Basis-URL"
+
+#: pretalx_rt/models.py:14
+msgid "Base URL for Request Tracker."
+msgstr "Basis-URL f&uuml;r den Request Tracker."
+
+#: pretalx_rt/models.py:22
+msgid "RT Queue for this event."
+msgstr "RT Bereich f&uuml;r dieses Event."
+
+#: pretalx_rt/models.py:25
 msgid "Initial state"
 msgstr "Initialer Status"
 
-#: pretalx_rt/forms.py:33
-msgid "Initial RT status for newly created tickets"
-msgstr "Initialer Status f&uuml;r neu angelegte Tickets"
+#: pretalx_rt/models.py:26
+msgid "Initial RT status for newly created tickets."
+msgstr "Initialer Status f&uuml;r neu angelegte Tickets."
 
-#: pretalx_rt/forms.py:38
-msgid "Custom field for pretalx ID"
-msgstr "ID Feld"
-
-#: pretalx_rt/forms.py:39
-msgid "Custom field in RT to store reference to pretalx ID"
-msgstr "Benutzerdefiniertes Feld f&uuml;r die pretalx ID der Einreichung"
-
-#: pretalx_rt/forms.py:44
-msgid "Custom field for pretalx state"
-msgstr "Status Feld"
-
-#: pretalx_rt/forms.py:45
-msgid "Custom field in RT to store pretalx state"
-msgstr "Benutzerdefiniertes Feld f&uuml;r den pretalx Status der Einreichung"
-
-#: pretalx_rt/forms.py:50
+#: pretalx_rt/models.py:40
 msgid "Send HTML mails"
 msgstr "Sende HTML-Mails"
 
-#: pretalx_rt/forms.py:51
-msgid "Let RT send out mails in HTML markup"
-msgstr "Sende HTML formatierte E-Mails"
+#: pretalx_rt/models.py:41
+msgid "Let RT send out mails in HTML markup."
+msgstr "Sende HTML formatierte E-Mails."
 
-#: pretalx_rt/forms.py:57
+#: pretalx_rt/models.py:45
 msgid "Sync interval"
 msgstr "Synchronisationsintervall"
 
-#: pretalx_rt/forms.py:58
-msgid "Minimum interval in minutes to sync RT tickets"
-msgstr "Mindestintervall zwischen Synchronisationsdurchg&auml;ngen"
+#: pretalx_rt/models.py:46
+msgid "Minimum interval to sync RT tickets."
+msgstr "Mindestintervall zwischen Synchronisationsdurchg&auml;ngen."
 
-#: pretalx_rt/models.py:8
+#: pretalx_rt/models.py:78
 msgid "Ticket ID"
 msgstr "Ticket ID"
 
-#: pretalx_rt/models.py:9
-msgid "The numeric ID of the ticket in RT"
-msgstr "Numerische ID des Tickets in RT"
+#: pretalx_rt/models.py:79
+msgid "The numeric ID of the ticket in RT."
+msgstr "Numerische ID des Tickets in RT."
 
-#: pretalx_rt/models.py:13
+#: pretalx_rt/models.py:83
 msgid "Subject"
 msgstr "Betreff"
 
-#: pretalx_rt/models.py:14
-msgid "The subject of the ticket in RT"
-msgstr "Betreff des Tickets in RT"
+#: pretalx_rt/models.py:84
+msgid "The subject of the ticket in RT."
+msgstr "Betreff des Tickets in RT."
 
-#: pretalx_rt/models.py:18
+#: pretalx_rt/models.py:88
 msgid "Status"
 msgstr "Status"
 
-#: pretalx_rt/models.py:19
-msgid "The status of the ticket in RT"
-msgstr "Status des Tickets in RT"
+#: pretalx_rt/models.py:89
+msgid "The status of the ticket in RT."
+msgstr "Status des Tickets in RT."
 
-#: pretalx_rt/models.py:24
-msgid "The queue of the ticket in RT"
-msgstr "Bereich (Queue) des Tickets in RT"
+#: pretalx_rt/models.py:94
+msgid "The queue of the ticket in RT."
+msgstr "Bereich (Queue) des Tickets in RT."
+
+#: pretalx_rt/templates/pretalx_rt/settings.html:7
+msgid "RT Event Settings"
+msgstr "RT Veranstaltungseinstellungen"
+
+#: pretalx_rt/templates/pretalx_rt/settings.html:12
+msgid "RT User Settings"
+msgstr "RT Nutzereinstellungen"
 
 #: pretalx_rt/views.py:27
-msgid "The pretalx RT plugin settings were updated."
-msgstr "Die Einstellungen des RT Plugins wurden aktualisiert."
+msgid "The pretalx RT event settings were updated."
+msgstr "Die Veranstaltungseinstellungen des RT Plugins wurden aktualisiert."
+
+#: pretalx_rt/views.py:32
+msgid "The pretalx RT user settings were updated."
+msgstr "Die Nutzereinstellungen des RT Plugins wurden aktualisiert."

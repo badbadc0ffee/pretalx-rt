@@ -19,7 +19,7 @@ class EventSettings(models.Model):
     )
     queue = models.CharField(
         verbose_name=_("Queue"),
-        help_text=_("RT Queue for this event"),
+        help_text=_("RT Queue for this event."),
     )
     initial_status = models.CharField(
         verbose_name=_("Initial state"),
@@ -27,12 +27,12 @@ class EventSettings(models.Model):
         default="resolved",
     )
     custom_field_id = models.CharField(
-        verbose_name=_("Custom field for pretalx ID"),
+        verbose_name=_("ID Field"),
         help_text=_("Custom field in RT to store reference to pretalx ID."),
         default="Pretalx ID",
     )
     custom_field_state = models.CharField(
-        verbose_name=_("Custom field for pretalx state"),
+        verbose_name=_("State Field"),
         help_text=_("Custom field in RT to store pretalx state."),
         default="Pretalx State",
     )
@@ -43,7 +43,7 @@ class EventSettings(models.Model):
     )
     sync_interval = models.IntegerField(
         verbose_name=_("Sync interval"),
-        help_text=_("Minimum interval in minutes to sync RT tickets."),
+        help_text=_("Minimum interval to sync RT tickets."),
         default=30,
     )
 

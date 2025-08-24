@@ -80,11 +80,11 @@ class EventSettingsForm(SettingsForm):
         required=True,
     )
     custom_field_id = forms.ChoiceField(
-        label=_("Custom field for pretalx ID"),
+        label=_("ID Field"),
         help_text=_("Custom field in RT to store reference to pretalx ID."),
     )
     custom_field_state = forms.ChoiceField(
-        label=_("Custom field for pretalx state"),
+        label=_("State Field"),
         help_text=_("Custom field in RT to store pretalx state."),
     )
 
