@@ -13,7 +13,7 @@ from pretalx.common.signals import (
 )
 from pretalx.mail.signals import queuedmail_pre_send
 from pretalx.orga.signals import mail_form, nav_event_settings, submission_form
-from pretalx.submission.models import Submission, SubmissionComment
+from pretalx.submission.models import Submission, SubmissionComment, SubmissionStates
 
 from .forms import RTForm
 from .models import Ticket
@@ -166,6 +166,9 @@ def pretalx_rt_submission_comment_saved(sender, instance, created, **kwargs):
     if not is_enabled(instance.event):
         return
 
+    if instance.submission.state == SubmissionStates.DRAFT:
+        return
+
     rt_sync = RTSync(instance.event, instance.user)
 
     ticket = getattr(instance.submission, "rt_ticket", None)
@@ -180,6 +183,9 @@ def pretalx_rt_submission_comment_saved(sender, instance, created, **kwargs):
 def pretalx_rt_submission_changed(sender, instance, **kwargs):
     """Update or create RT ticket when submission is saved."""
     if not is_enabled(instance.event):
+        return
+
+    if instance.state == SubmissionStates.DRAFT:
         return
 
     rt_sync = RTSync(instance.event)
@@ -197,6 +203,9 @@ def pretalx_rt_submission_changed(sender, instance, **kwargs):
 def pretalx_rt_submission_speaker_changed(sender, instance, action, **kwargs):
     """Handle changes to speakers of a submission by updating or creating the RT ticket."""
     if not is_enabled(instance.event):
+        return
+
+    if instance.state == SubmissionStates.DRAFT:
         return
 
     if action not in ["post_add", "post_remove"]:
