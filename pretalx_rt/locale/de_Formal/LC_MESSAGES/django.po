@@ -4,7 +4,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-08-24 17:46+0200\n"
+"POT-Creation-Date: 2025-08-28 15:42+0200\n"
 "Language: de_DE\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -39,41 +39,49 @@ msgstr ""
 "oder wenn eine Benachrichtigung nicht mit einer Einreichung verkn&uuml;pft "
 "ist, sondern direkt an eine Person gerichtet wird."
 
-#: pretalx_rt/forms.py:14 pretalx_rt/models.py:17 pretalx_rt/models.py:66
+#: pretalx_rt/forms.py:15 pretalx_rt/models.py:17 pretalx_rt/models.py:66
 msgid "Auth Token"
 msgstr "Auth Token"
 
-#: pretalx_rt/forms.py:17 pretalx_rt/models.py:18 pretalx_rt/models.py:67
+#: pretalx_rt/forms.py:18 pretalx_rt/models.py:18 pretalx_rt/models.py:67
 msgid "Authorization token for Request Tracker REST 2.0 API."
 msgstr "Autorisierungstoken f&uuml;r die Request Tracker REST 2.0 API"
 
-#: pretalx_rt/forms.py:20
+#: pretalx_rt/forms.py:21
 msgid "Auth Token (again)"
 msgstr "Auth Token (nochmal)"
 
-#: pretalx_rt/forms.py:78 pretalx_rt/models.py:21 pretalx_rt/models.py:93
+#: pretalx_rt/forms.py:81 pretalx_rt/models.py:21 pretalx_rt/models.py:93
 msgid "Queue"
 msgstr "Bereich"
 
-#: pretalx_rt/forms.py:83 pretalx_rt/models.py:30
+#: pretalx_rt/forms.py:86 pretalx_rt/models.py:30
 msgid "ID Field"
 msgstr "ID Feld"
 
-#: pretalx_rt/forms.py:84 pretalx_rt/models.py:31
+#: pretalx_rt/forms.py:87 pretalx_rt/models.py:31
 msgid "Custom field in RT to store reference to pretalx ID."
 msgstr "Benutzerdefiniertes Feld f&uuml;r die pretalx ID."
 
-#: pretalx_rt/forms.py:87 pretalx_rt/models.py:35
+#: pretalx_rt/forms.py:90 pretalx_rt/models.py:35
 msgid "State Field"
 msgstr "Status Feld"
 
-#: pretalx_rt/forms.py:88 pretalx_rt/models.py:36
+#: pretalx_rt/forms.py:91 pretalx_rt/models.py:36
 msgid "Custom field in RT to store pretalx state."
 msgstr "Benutzerdefiniertes Feld f&uuml;r den pretalx Status."
 
-#: pretalx_rt/forms.py:95
+#: pretalx_rt/forms.py:98
 msgid "minutes"
 msgstr "Minuten"
+
+#: pretalx_rt/forms.py:109
+msgid "Personal authorization token for Request Tracker REST 2.0 API."
+msgstr "Pers&ouml;nliches Autorisierungstoken f&uuml;r die Request Tracker REST 2.0 API"
+
+#: pretalx_rt/forms.py:115
+msgid "Leave empty to use the event token."
+msgstr "Leer lassen, um das Veranstaltungs-Token zu verwenden."
 
 #: pretalx_rt/models.py:13
 msgid "Base URL"
@@ -85,7 +93,7 @@ msgstr "Basis-URL f&uuml;r den Request Tracker."
 
 #: pretalx_rt/models.py:22
 msgid "RT Queue for this event."
-msgstr "RT Bereich f&uuml;r dieses Event."
+msgstr "RT Bereich f&uuml;r diese Veranstaltung."
 
 #: pretalx_rt/models.py:25
 msgid "Initial state"

@@ -1,5 +1,6 @@
 from django import forms
 from django.utils.translation import gettext_lazy as _
+from pretalx.common.forms.mixins import ReadOnlyFlag
 from pretalx.common.forms.renderers import TabularFormRenderer
 from pretalx.common.forms.widgets import TextInputWithAddon
 from pretalx.mail.models import QueuedMail
@@ -28,6 +29,8 @@ class SettingsForm(forms.ModelForm):
         new_auth_token_repeat = self.cleaned_data.get("new_auth_token_repeat")
         if new_auth_token:
             if new_auth_token == new_auth_token_repeat:
+                if new_auth_token == "-":
+                    new_auth_token = ""
                 data["rest_auth_token"] = new_auth_token
                 self.changed_data.append("rest_auth_token")
             else:
@@ -40,9 +43,9 @@ class SettingsForm(forms.ModelForm):
         return super().save()
 
 
-class EventSettingsForm(SettingsForm):
+class EventSettingsForm(ReadOnlyFlag, SettingsForm):
     def __init__(self, *args, event, **kwargs):
-        self.instance, _ = EventSettings.objects.get_or_create(event=event)
+        self.instance, created = EventSettings.objects.get_or_create(event=event)
         if key := self.instance.rest_auth_token:
             self.declared_fields["new_auth_token"].widget.attrs["placeholder"] = (
                 key[:10] + " ... " + key[-2:]
@@ -98,12 +101,19 @@ class EventSettingsForm(SettingsForm):
 
 class UserSettingsForm(SettingsForm):
     def __init__(self, event, user, *args, **kwargs):
-        self.instance, _ = UserSettings.objects.get_or_create(event=event, user=user)
-        if key := self.instance.rest_auth_token:
-            self.declared_fields["new_auth_token"].widget.attrs["placeholder"] = (
-                key[:10] + " ... " + key[-2:]
-            )
+        self.instance, created = UserSettings.objects.get_or_create(
+            event=event, user=user
+        )
         super().__init__(*args, **kwargs, instance=self.instance)
+        self.fields["new_auth_token"].help_text = _(
+            "Personal authorization token for Request Tracker REST 2.0 API."
+        )
+        key = self.instance.rest_auth_token
+        self.fields["new_auth_token"].widget.attrs["placeholder"] = (
+            (key[:10] + " ... " + key[-2:])
+            if key
+            else _("Leave empty to use the event token.")
+        )
 
     class Meta:
         model = UserSettings

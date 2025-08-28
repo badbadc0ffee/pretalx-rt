@@ -5,12 +5,12 @@ from django.utils.translation import gettext_lazy as _
 from django.views.generic import TemplateView
 from django_context_decorator import context
 from pretalx.common.views import is_form_bound
-from pretalx.common.views.mixins import PermissionRequired
+from pretalx.common.views.mixins import EventPermissionRequired
 
 from .forms import EventSettingsForm, UserSettingsForm
 
 
-class SettingsView(PermissionRequired, TemplateView):
+class SettingsView(EventPermissionRequired, TemplateView):
     permission_required = "event.update_event"
     template_name = "pretalx_rt/settings.html"
 
@@ -39,6 +39,7 @@ class SettingsView(PermissionRequired, TemplateView):
         return EventSettingsForm(
             event=self.request.event,
             data=self.request.POST if is_form_bound(self.request, "event") else None,
+            read_only=not self.request.user.is_administrator,
         )
 
     @context
