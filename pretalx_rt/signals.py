@@ -117,9 +117,6 @@ def pretalx_rt_periodic_pull(sender, **kwargs):
     """Periodically pull updates from RT for existing tickets."""
     logger.debug("Starting periodic RT ticket sync")
 
-    if not is_enabled(sender):
-        return
-
     start = now()
 
     for ticket in Ticket.objects.exclude(submission__isnull=True).order_by(
@@ -131,7 +128,7 @@ def pretalx_rt_periodic_pull(sender, **kwargs):
 
         event = ticket.submission.event
 
-        if needs_sync(ticket):
+        if is_enabled(event) and needs_sync(ticket):
             RTSync(event).pull(ticket)
 
 
@@ -227,10 +224,10 @@ def is_enabled(event):
     return "pretalx_rt" in event.plugin_list
 
 
-def needs_sync(ticket, event):
+def needs_sync(ticket):
     """Check if a ticket needs to be synced based on the sync interval."""
     if ticket.sync_timestamp is None:
         return True
 
-    interval = timedelta(minutes=int(event.rt_settings.sync_interval))
+    interval = timedelta(minutes=int(ticket.event.rt_settings.sync_interval))
     return (now() - ticket.sync_timestamp) > interval
