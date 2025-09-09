@@ -73,7 +73,7 @@ def pretalx_rt_submission_form(sender, request, instance, **kwargs):
     Returns a form for the RT ticket if the submission has one.
     """
     if ticket := getattr(instance, "rt_ticket", None):
-        if needs_sync(ticket, sender):
+        if needs_sync(ticket):
             ticket_pull_task.apply_async(
                 kwargs={"event_id": sender.pk, "ticket_id": ticket.pk}
             )
