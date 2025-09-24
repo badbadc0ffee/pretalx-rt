@@ -45,38 +45,45 @@ class RTSync:
         """Create a new RT ticket for a submission."""
         self.logger.info(f"Creating RT ticket for submission {submission.code}")
 
-        rt_id = self.rt.create_ticket(
-            queue=self.event.rt_settings.queue,
-            subject=submission.title,
-            Requestor=self.requestors(submission.speakers.all()),
-            Status=self.event.rt_settings.initial_status,
-            Owner="Nobody",
-            CustomFields={
-                self.event.rt_settings.custom_field_id: submission.code,
-                self.event.rt_settings.custom_field_state: submission.state,
-            },
-        )
+        try:
+            rt_id = self.rt.create_ticket(
+                queue=self.event.rt_settings.queue,
+                subject=submission.title,
+                Requestor=self.requestors(submission.speakers.all()),
+                Status=self.event.rt_settings.initial_status,
+                Owner="Nobody",
+                CustomFields={
+                    self.event.rt_settings.custom_field_id: submission.code,
+                    self.event.rt_settings.custom_field_state: submission.state,
+                },
+            )
 
-        ticket = Ticket(event=self.event, rt_id=rt_id, submission=submission)
-        self.pull(ticket)
-        return ticket
+            ticket = Ticket(event=self.event, rt_id=rt_id, submission=submission)
+            self.pull(ticket)
+            return ticket
+        except Exception as e:
+            self.logger.error(f"Failed to create RT ticket: {e}")
+            return None
 
     def create_mail_ticket(self, mail):
         """Create a new RT ticket for a standalone mail."""
         self.logger.info("Creating RT ticket for standalone mail")
 
-        rt_id = self.rt.create_ticket(
-            queue=self.event.rt_settings.queue,
-            subject=mail.subject,
-            Requestor=self.requestors(mail.to_users.all()),
-            Status=self.event.rt_settings.initial_status,
-            Owner="Nobody",
-        )
+        try:
+            rt_id = self.rt.create_ticket(
+                queue=self.event.rt_settings.queue,
+                subject=mail.subject,
+                Requestor=self.requestors(mail.to_users.all()),
+                Status=self.event.rt_settings.initial_status,
+                Owner="Nobody",
+            )
 
-        ticket = Ticket(event=self.event, rt_id=rt_id)
-        self.pull(ticket)
-        return ticket
-
+            ticket = Ticket(event=self.event, rt_id=rt_id)
+            self.pull(ticket)
+            return ticket
+        except Exception as e:
+            self.logger.error(f"Failed to create RT ticket: {e}")
+            return None
     def add_mail_to_ticket(self, ticket, mail):
         """Add a mail as a reply to an RT ticket."""
         self.logger.info(f"Adding mail to RT #{ticket.rt_id}")

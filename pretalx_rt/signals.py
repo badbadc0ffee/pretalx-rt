@@ -172,7 +172,7 @@ def pretalx_rt_submission_comment_saved(sender, instance, created, **kwargs):
     if ticket is None:
         ticket = rt_sync.create_submission_ticket(instance.submission)
 
-    if created:
+    if created and ticket:
         rt_sync.add_comment_to_ticket(ticket, instance)
 
 
@@ -191,9 +191,10 @@ def pretalx_rt_submission_changed(sender, instance, **kwargs):
     if ticket is None:
         ticket = rt_sync.create_submission_ticket(instance)
 
-    ticket_push_task.apply_async(
-        kwargs={"event_id": instance.event.pk, "ticket_id": ticket.pk}
-    )
+    if ticket:
+        ticket_push_task.apply_async(
+            kwargs={"event_id": instance.event.pk, "ticket_id": ticket.pk}
+        )
 
 
 @receiver(m2m_changed, sender=Submission.speakers.through)
@@ -214,9 +215,10 @@ def pretalx_rt_submission_speaker_changed(sender, instance, action, **kwargs):
     if ticket is None:
         ticket = rt_sync.create_submission_ticket(instance)
 
-    ticket_push_task.apply_async(
-        kwargs={"event_id": instance.event.pk, "ticket_id": ticket.pk}
-    )
+    if ticket:
+        ticket_push_task.apply_async(
+            kwargs={"event_id": instance.event.pk, "ticket_id": ticket.pk}
+        )
 
 
 def is_enabled(event):
