@@ -4,7 +4,9 @@ from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
 from django.views.generic import TemplateView
 from django_context_decorator import context
-from pretalx.common.views import is_form_bound
+from pretalx.common.views.helpers import is_form_bound
+from pretalx.common.ui import Button
+
 from pretalx.common.views.mixins import EventPermissionRequired
 
 from .forms import EventSettingsForm, UserSettingsForm
@@ -19,7 +21,13 @@ class SettingsView(EventPermissionRequired, TemplateView):
 
     def get_object(self):
         return self.request.event
-
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["event_submit"] = [Button(name="form", value="event")]
+        context["user_submit"] = [Button(name="form", value="user")]
+        return context
+        
     def post(self, request, *args, **kwargs):
         if self.event_settings.is_bound and self.event_settings.is_valid():
             self.event_settings.save()
