@@ -3,6 +3,7 @@ import logging
 from django.utils.timezone import now
 from pretalx.celery_app import app
 from pretalx.event.models import Event
+from pretalx.mail.enums import QueuedMailStates
 from rt.rest2 import Attachment, Rt
 
 from .models import Ticket
@@ -84,12 +85,16 @@ class RTSync:
         except Exception as e:
             self.logger.error(f"Failed to create RT ticket: {e}")
             return None
+
     def add_mail_to_ticket(self, ticket, mail):
         """Add a mail as a reply to an RT ticket."""
         self.logger.info(f"Adding mail to RT #{ticket.rt_id}")
         old_ticket = self.rt.get_ticket(ticket.rt_id)
 
         try:
+            mail.state = QueuedMailStates.SENDING
+            mail.save(update_fields=["state"])
+            
             self.rt.edit_ticket(
                 ticket.rt_id,
                 Requestor=self.requestors(mail.to_users.all()),
@@ -108,16 +113,21 @@ class RTSync:
             html = self.event.rt_settings.is_mail_html
             self.rt.reply(
                 ticket.rt_id,
-                content=mail.make_html() if html else mail.make_text(),
+                content=mail.text_html if html else mail.text,
                 content_type="text/html" if html else "text/plain",
                 attachments=attachments,
             )
 
-            mail.sent = now()
-            mail.save()
+            mail.mark_sent()
             ticket.mails.add(mail.id)
             ticket.save()
 
+        except Exception as e:
+            mail.error_data = {"error": str(e), "type": type(e).__name__}
+            mail.error_timestamp = now()
+            mail.save(update_fields=["error_data", "error_timestamp"])
+            self.logger.error(f"Failed to add mail to RT ticket #{ticket.rt_id}: {e}")
+        
         finally:
             self.rt.edit_ticket(
                 ticket.rt_id,
@@ -157,7 +167,7 @@ class RTSync:
             self.rt.edit_ticket(
                 ticket.rt_id,
                 Subject=ticket.submission.title,
-                Requestor=self.requestors(ticket.submission.speakers.all()),
+                Requestor=self.requestors(ticket.submission.speakers.all().select_related("user")),
                 CustomFields={
                     self.event.rt_settings.custom_field_id: ticket.submission.code,
                     self.event.rt_settings.custom_field_state: ticket.submission.state,
