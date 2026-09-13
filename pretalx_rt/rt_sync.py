@@ -1,6 +1,7 @@
 import logging
 
 from django.utils.timezone import now
+from django_scopes import scope
 from pretalx.celery_app import app
 from pretalx.event.models import Event
 from pretalx.mail.enums import QueuedMailStates
@@ -293,10 +294,14 @@ class RTSync:
 
 @app.task(bind=True, name="pretalx_rt.ticket_pull_task")
 def ticket_pull_task(self, event_id: int, ticket_id: int):
-    RTSync(Event.objects.get(id=event_id)).pull(Ticket.objects.get(id=ticket_id))
+    event = Event.objects.get(id=event_id)
+    with scope(event=event):
+        RTSync(event).pull(Ticket.objects.get(id=ticket_id))
 
 
 @app.task(bind=True, name="pretalx_rt.ticket_push_task")
 def ticket_push_task(self, event_id: int, ticket_id: int):
-    RTSync(Event.objects.get(id=event_id)).push(Ticket.objects.get(id=ticket_id))
+    event = Event.objects.get(id=event_id)
+    with scope(event=event):
+        RTSync(event).push(Ticket.objects.get(id=ticket_id))
 

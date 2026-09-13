@@ -126,7 +126,7 @@ def pretalx_rt_periodic_pull(sender, **kwargs):
             logger.debug("Periodic sync time limit reached")
             return
 
-        event = ticket.submission.event
+        event = ticket.event
 
         if is_enabled(event) and needs_sync(ticket):
             RTSync(event).pull(ticket)
