@@ -50,7 +50,9 @@ class RTSync:
             rt_id = self.rt.create_ticket(
                 queue=self.event.rt_settings.queue,
                 subject=submission.title,
-                Requestor=self.requestors(submission.speakers.all()),
+                Requestor=self.requestors(
+                    speaker.user for speaker in submission.speakers.select_related("user")
+                ),
                 Status=self.event.rt_settings.initial_status,
                 Owner="Nobody",
                 CustomFields={
@@ -94,7 +96,7 @@ class RTSync:
         try:
             mail.state = QueuedMailStates.SENDING
             mail.save(update_fields=["state"])
-            
+
             self.rt.edit_ticket(
                 ticket.rt_id,
                 Requestor=self.requestors(mail.to_users.all()),
@@ -127,7 +129,7 @@ class RTSync:
             mail.error_timestamp = now()
             mail.save(update_fields=["error_data", "error_timestamp"])
             self.logger.error(f"Failed to add mail to RT ticket #{ticket.rt_id}: {e}")
-        
+
         finally:
             self.rt.edit_ticket(
                 ticket.rt_id,
@@ -167,7 +169,9 @@ class RTSync:
             self.rt.edit_ticket(
                 ticket.rt_id,
                 Subject=ticket.submission.title,
-                Requestor=self.requestors(ticket.submission.speakers.all().select_related("user")),
+                Requestor=self.requestors(
+                    speaker.user for speaker in ticket.submission.speakers.select_related("user")
+                ),
                 CustomFields={
                     self.event.rt_settings.custom_field_id: ticket.submission.code,
                     self.event.rt_settings.custom_field_state: ticket.submission.state,
@@ -295,3 +299,4 @@ def ticket_pull_task(self, event_id: int, ticket_id: int):
 @app.task(bind=True, name="pretalx_rt.ticket_push_task")
 def ticket_push_task(self, event_id: int, ticket_id: int):
     RTSync(Event.objects.get(id=event_id)).push(Ticket.objects.get(id=ticket_id))
+
