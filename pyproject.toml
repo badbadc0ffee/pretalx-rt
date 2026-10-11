@@ -21,8 +21,13 @@ dev = [
   "black",
   "build",
   "check-manifest",
+  "djhtml",
   "flake8",
+  "flake8-bugbear",
   "isort",
+  "pytest",
+  "pytest-cov",
+  "pytest-django",
 ]
 
 [project.urls]
@@ -46,4 +51,4 @@ version = {attr = "pretalx_rt.__version__"}
 include = ["pretalx*"]
 
 [tool.check-manifest]
-ignore = [".*"]
+ignore = [".*", "tests/*"]
