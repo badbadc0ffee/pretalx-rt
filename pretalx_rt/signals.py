@@ -149,6 +149,12 @@ def pretalx_rt_queuedmail_pre_send(sender, mail, **kwargs):
     if ticket is None:
         ticket = rt_sync.create_mail_ticket(mail)
 
+    if ticket is None:
+        logger.warning(
+            "No RT ticket for mail %s, leaving it to the regular mail backend", mail.pk
+        )
+        return
+
     rt_sync.add_mail_to_ticket(ticket, mail)
 
 
@@ -217,8 +223,11 @@ def pretalx_rt_submission_speaker_changed(sender, instance, action, **kwargs):
 
 
 def is_enabled(event):
-    """Check if RT integration is enabled for the event."""
-    return "pretalx_rt" in event.plugin_list
+    """Check if RT integration is enabled and configured for the event."""
+    return (
+        "pretalx_rt" in event.plugin_list
+        and EventSettings.objects.filter(event=event).exists()
+    )
 
 
 def needs_sync(ticket):

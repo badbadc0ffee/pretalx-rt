@@ -40,7 +40,8 @@ Features
 
 - **Mails via RT:** outgoing mails are sent as replies on RT tickets. A mail
   related to exactly one submission uses that submission's ticket; any other
-  mail gets its own ticket. Requestors are set from the recipients.
+  mail gets its own ticket. Requestors are set from the recipients. If no
+  ticket can be created, the mail is sent the regular way.
 - **One ticket per submission:** a ticket is created automatically when a
   non-draft submission is saved, its speakers change, or a comment is added.
 - **Comments:** comments on a submission are added to its RT ticket as comments.
