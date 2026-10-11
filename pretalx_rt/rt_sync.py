@@ -92,7 +92,6 @@ class RTSync:
     def add_mail_to_ticket(self, ticket, mail):
         """Add a mail as a reply to an RT ticket."""
         self.logger.info("Adding mail to RT #%s", ticket.rt_id)
-        old_ticket = self.rt.get_ticket(ticket.rt_id)
 
         try:
             mail.state = QueuedMailStates.SENDING
@@ -132,29 +131,18 @@ class RTSync:
             self.logger.exception("Failed to add mail to RT ticket #%s", ticket.rt_id)
 
         finally:
-            self.rt.edit_ticket(
-                ticket.rt_id,
-                Requestor=old_ticket["Requestor"],
-                Subject=old_ticket["Subject"],
-                Status=old_ticket["Status"],
-            )
+            self.push(ticket)
 
     def add_comment_to_ticket(self, ticket, comment):
-        """Add a comment to an RT ticket."""
+        """Add a comment to an RT ticket, then sync the ticket towards RT."""
         self.logger.info("Adding comment to RT #%s", ticket.rt_id)
-        old_ticket = self.rt.get_ticket(ticket.rt_id)
 
         try:
             self.rt.comment(
                 ticket.rt_id, content=rich_text(comment.text), content_type="text/html"
             )
         finally:
-            self.rt.edit_ticket(
-                ticket.rt_id,
-                Requestor=old_ticket["Requestor"],
-                Subject=old_ticket["Subject"],
-                Status=old_ticket["Status"],
-            )
+            self.push(ticket)
 
     def push(self, ticket):
         """Push updates from pretalx to RT ticket."""

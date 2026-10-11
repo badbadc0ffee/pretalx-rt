@@ -280,38 +280,75 @@ def reload(mail):
         return QueuedMail.objects.get(pk=mail.pk)
 
 
+@pytest.fixture
+def push():
+    with mock.patch.object(RTSync, "push") as push_mock:
+        yield push_mock
+
+
 @pytest.mark.django_db
 @pytest.mark.parametrize(
     ("html", "content", "content_type"),
     ((True, "<p>Body text</p>", "text/html"), (False, "Body text", "text/plain")),
 )
 def test_add_mail_to_ticket(
-    sync, rt, rt_ticket, ticket, mail, event_settings, log, html, content, content_type
+    sync, rt, ticket, mail, push, event_settings, log, html, content, content_type
 ):
     event_settings.is_mail_html = html
     event_settings.save()
     sync.settings = event_settings
-    rt.get_ticket.return_value = rt_ticket
 
     sync.add_mail_to_ticket(ticket, mail)
 
     rt.reply.assert_called_once_with(
         5, content=content, content_type=content_type, attachments=[]
     )
-    assert rt.edit_ticket.call_args_list == [
-        mock.call(5, Requestor=["Jane <jane@example.org>"], Subject="Hello"),
-        mock.call(
-            5, Requestor=["old requestor"], Subject="Remote subject", Status="open"
-        ),
-    ]
+    rt.edit_ticket.assert_called_once_with(
+        5, Requestor=["Jane <jane@example.org>"], Subject="Hello"
+    )
     assert reload(mail).state == QueuedMailStates.SENT
     assert list(ticket.mails.values_list("pk", flat=True)) == [mail.pk]
     assert log_lines(log) == [("INFO", "Adding mail to RT #5")]
 
 
 @pytest.mark.django_db
-def test_add_mail_to_ticket_sends_attachments(sync, rt, rt_ticket, ticket, mail):
-    rt.get_ticket.return_value = rt_ticket
+def test_add_mail_to_ticket_syncs_the_ticket_after_sending(
+    sync, rt, ticket, mail, push
+):
+    calls = mock.Mock()
+    calls.attach_mock(rt.reply, "reply")
+    calls.attach_mock(push, "push")
+
+    sync.add_mail_to_ticket(ticket, mail)
+
+    assert [name for name, _, _ in calls.mock_calls] == ["reply", "push"]
+    push.assert_called_once_with(ticket)
+
+
+@pytest.mark.django_db
+def test_add_mail_to_ticket_ends_with_the_pretalx_data_in_rt(
+    sync, rt, ticket, mail, submission
+):
+    with mock.patch("pretalx_rt.rt_sync.ticket_pull_task") as pull_task:
+        sync.add_mail_to_ticket(ticket, mail)
+
+    assert rt.edit_ticket.call_args_list == [
+        mock.call(5, Requestor=["Jane <jane@example.org>"], Subject="Hello"),
+        mock.call(
+            5,
+            Subject="My talk",
+            Requestor=["Jane <jane@example.org>"],
+            CustomFields={
+                "Pretalx ID": submission.code,
+                "Pretalx State": submission.state,
+            },
+        ),
+    ]
+    pull_task.apply_async.assert_called_once()
+
+
+@pytest.mark.django_db
+def test_add_mail_to_ticket_sends_attachments(sync, rt, ticket, mail, push):
     mail.attachments = [
         {"name": "a.txt", "content": "YQ==", "content_type": "text/plain"}
     ]
@@ -325,10 +362,7 @@ def test_add_mail_to_ticket_sends_attachments(sync, rt, rt_ticket, ticket, mail)
 
 
 @pytest.mark.django_db
-def test_add_mail_to_ticket_failure_records_error(
-    sync, rt, rt_ticket, ticket, mail, log
-):
-    rt.get_ticket.return_value = rt_ticket
+def test_add_mail_to_ticket_failure_records_error(sync, rt, ticket, mail, push, log):
     rt.reply.side_effect = RuntimeError("boom")
 
     sync.add_mail_to_ticket(ticket, mail)
@@ -338,18 +372,14 @@ def test_add_mail_to_ticket_failure_records_error(
     assert mail.error_data == {"error": "boom", "type": "RuntimeError"}
     assert mail.error_timestamp is not None
     assert not ticket.mails.exists()
-    # The original ticket data is restored even though sending failed.
-    assert rt.edit_ticket.call_args_list[-1] == mock.call(
-        5, Requestor=["old requestor"], Subject="Remote subject", Status="open"
-    )
+    push.assert_called_once_with(ticket)
     level, message = log_lines(log)[-1]
     assert level == "ERROR"
     assert message.startswith("Failed to add mail to RT ticket #5")
 
 
 @pytest.mark.django_db
-def test_add_comment_to_ticket(sync, rt, rt_ticket, ticket, log):
-    rt.get_ticket.return_value = rt_ticket
+def test_add_comment_to_ticket(sync, rt, ticket, push, log):
     comment = SimpleNamespace(text="Some *comment*")
 
     sync.add_comment_to_ticket(ticket, comment)
@@ -357,23 +387,47 @@ def test_add_comment_to_ticket(sync, rt, rt_ticket, ticket, log):
     rt.comment.assert_called_once_with(
         5, content=rich_text("Some *comment*"), content_type="text/html"
     )
-    rt.edit_ticket.assert_called_once_with(
-        5, Requestor=["old requestor"], Subject="Remote subject", Status="open"
-    )
     assert log_lines(log) == [("INFO", "Adding comment to RT #5")]
 
 
 @pytest.mark.django_db
-def test_add_comment_to_ticket_restores_ticket_on_failure(sync, rt, rt_ticket, ticket):
-    rt.get_ticket.return_value = rt_ticket
+def test_add_comment_to_ticket_syncs_the_ticket_after_commenting(
+    sync, rt, ticket, push
+):
+    calls = mock.Mock()
+    calls.attach_mock(rt.comment, "comment")
+    calls.attach_mock(push, "push")
+
+    sync.add_comment_to_ticket(ticket, SimpleNamespace(text="x"))
+
+    assert [name for name, _, _ in calls.mock_calls] == ["comment", "push"]
+    push.assert_called_once_with(ticket)
+
+
+@pytest.mark.django_db
+def test_add_comment_to_ticket_syncs_the_ticket_on_failure(sync, rt, ticket, push):
     rt.comment.side_effect = RuntimeError("boom")
 
     with pytest.raises(RuntimeError):
         sync.add_comment_to_ticket(ticket, SimpleNamespace(text="x"))
 
+    push.assert_called_once_with(ticket)
+
+
+@pytest.mark.django_db
+def test_add_comment_to_ticket_ends_with_the_pretalx_data_in_rt(
+    sync, rt, ticket, submission
+):
+    with mock.patch("pretalx_rt.rt_sync.ticket_pull_task") as pull_task:
+        sync.add_comment_to_ticket(ticket, SimpleNamespace(text="x"))
+
     rt.edit_ticket.assert_called_once_with(
-        5, Requestor=["old requestor"], Subject="Remote subject", Status="open"
+        5,
+        Subject="My talk",
+        Requestor=["Jane <jane@example.org>"],
+        CustomFields={"Pretalx ID": submission.code, "Pretalx State": submission.state},
     )
+    pull_task.apply_async.assert_called_once()
 
 
 # Push
