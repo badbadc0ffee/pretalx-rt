@@ -1,6 +1,15 @@
 from django.db import models
+from django.utils.html import escape
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
+
+STATUS_TEXT = {
+    "new": "<i class='fa fa-inbox'></i>&nbsp;&nbsp;new",
+    "open": "<i class='fa fa-question-circle'></i>&nbsp;&nbsp;open",
+    "stalled": "<i class='fa fa-warning'></i>&nbsp;&nbsp;stalled",
+    "resolved": "<i class='fa fa-check-circle'></i>&nbsp;&nbsp;resolved",
+    "rejected": "<i class='fa fa-ban'></i>&nbsp;&nbsp;rejected",
+}
 
 
 class EventSettings(models.Model):
@@ -43,6 +52,9 @@ class EventSettings(models.Model):
         default=30,
     )
 
+    def __str__(self):
+        return f"EventSettings(event_id={self.event_id})"
+
     @property
     def rest_api_url(self):
         return self.base_url + "REST/2.0/"
@@ -57,6 +69,9 @@ class UserSettings(models.Model):
         verbose_name=_("Auth Token"),
         help_text=_("Authorization token for Request Tracker REST 2.0 API."),
     )
+
+    def __str__(self):
+        return f"UserSettings(event_id={self.event_id}, user_id={self.user_id})"
 
 
 class Ticket(models.Model):
@@ -90,6 +105,9 @@ class Ticket(models.Model):
     )
     sync_timestamp = models.DateTimeField(auto_now_add=True)
 
+    def __str__(self):
+        return f"Ticket(rt_id={self.rt_id})"
+
     @property
     def url(self):
         base_url = EventSettings.objects.get(event_id=self.event_id).base_url
@@ -106,16 +124,7 @@ class Ticket(models.Model):
         return ""
 
     @property
-    @mark_safe
     def status_text(self):
-        if self.status == "new":
-            return "<i class='fa fa-inbox'></i>&nbsp;&nbsp;new"
-        if self.status == "open":
-            return "<i class='fa fa-question-circle'></i>&nbsp;&nbsp;open"
-        if self.status == "stalled":
-            return "<i class='fa fa-warning'></i>&nbsp;&nbsp;stalled"
-        if self.status == "resolved":
-            return "<i class='fa fa-check-circle'></i>&nbsp;&nbsp;resolved"
-        if self.status == "rejected":
-            return "<i class='fa fa-ban'></i>&nbsp;&nbsp;rejected"
-        return self.status
+        if self.status in STATUS_TEXT:
+            return mark_safe(STATUS_TEXT[self.status])  # noqa: S308 -- static markup
+        return escape(self.status)

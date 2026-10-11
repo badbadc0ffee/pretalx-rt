@@ -28,7 +28,7 @@ class SettingsForm(forms.ModelForm):
         new_auth_token_repeat = self.cleaned_data.get("new_auth_token_repeat")
         if new_auth_token:
             if new_auth_token == new_auth_token_repeat:
-                if new_auth_token == "-":
+                if new_auth_token == "-":  # noqa: S105 -- sentinel to clear the token
                     new_auth_token = ""
                 data["rest_auth_token"] = new_auth_token
                 self.changed_data.append("rest_auth_token")
@@ -44,7 +44,7 @@ class SettingsForm(forms.ModelForm):
 
 class EventSettingsForm(ReadOnlyFlag, SettingsForm):
     def __init__(self, *args, event, **kwargs):
-        self.instance, created = EventSettings.objects.get_or_create(event=event)
+        self.instance, _created = EventSettings.objects.get_or_create(event=event)
         if key := self.instance.rest_auth_token:
             self.declared_fields["new_auth_token"].widget.attrs["placeholder"] = (
                 key[:10] + " ... " + key[-2:]
@@ -88,13 +88,21 @@ class EventSettingsForm(ReadOnlyFlag, SettingsForm):
 
     class Meta:
         model = EventSettings
-        exclude = ["event", "rest_auth_token"]
+        fields = (
+            "base_url",
+            "queue",
+            "initial_status",
+            "custom_field_id",
+            "custom_field_state",
+            "is_mail_html",
+            "sync_interval",
+        )
         widgets = {"sync_interval": TextInputWithAddon(addon_after=_("minutes"))}
 
 
 class UserSettingsForm(SettingsForm):
     def __init__(self, event, user, *args, **kwargs):
-        self.instance, created = UserSettings.objects.get_or_create(
+        self.instance, _created = UserSettings.objects.get_or_create(
             event=event, user=user
         )
         super().__init__(*args, **kwargs, instance=self.instance)
@@ -110,7 +118,7 @@ class UserSettingsForm(SettingsForm):
 
     class Meta:
         model = UserSettings
-        exclude = ["event", "user", "rest_auth_token"]
+        fields = ()
 
 
 class RTRenderer(TabularFormRenderer):
@@ -125,7 +133,7 @@ class RTForm(forms.ModelForm):
 
     class Meta:
         model = Ticket
-        exclude = ["id"]
+        fields = ("event", "rt_id", "subject", "status", "queue", "mails", "submission")
 
     def __init__(self, *args, **kwargs):
         self.event = kwargs.pop("event")

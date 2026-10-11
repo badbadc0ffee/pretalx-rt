@@ -50,7 +50,7 @@ def pretalx_rt_settings(sender, request, **kwargs):
 def pretalx_rt_data_exporter(sender, **kwargs):
     """Register the RT data exporter for pretalx."""
     logger.debug("Registering RT data exporter")
-    from .exporter import Exporter
+    from .exporter import Exporter  # noqa: PLC0415 -- loaded lazily
 
     return Exporter
 

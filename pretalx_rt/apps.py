@@ -30,4 +30,4 @@ class PluginApp(AppConfig):
         settings_links = [(gettext_lazy("Settings"), "plugins:pretalx_rt:settings", {})]
 
     def ready(self):
-        from . import signals  # NOQA
+        from . import signals  # noqa: PLC0415, F401
