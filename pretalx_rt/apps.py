@@ -27,9 +27,7 @@ class PluginApp(AppConfig):
         visible = True
         version = __version__
         category = "INTEGRATION"
-        settings_links = [
-            (gettext_lazy("Settings"), "plugins:pretalx_rt:settings", {}),
-        ]
+        settings_links = [(gettext_lazy("Settings"), "plugins:pretalx_rt:settings", {})]
 
     def ready(self):
         from . import signals  # NOQA

@@ -1,5 +1,6 @@
 from django import forms
 from django.utils.translation import gettext_lazy as _
+
 from pretalx.common.forms.mixins import ReadOnlyFlag
 from pretalx.common.forms.renderers import TabularFormRenderer
 from pretalx.common.forms.widgets import TextInputWithAddon
@@ -18,9 +19,7 @@ class SettingsForm(forms.ModelForm):
         help_text=_("Authorization token for Request Tracker REST 2.0 API."),
     )
     new_auth_token_repeat = forms.CharField(
-        label=_("Auth Token (again)"),
-        required=False,
-        widget=forms.PasswordInput(),
+        label=_("Auth Token (again)"), required=False, widget=forms.PasswordInput()
     )
 
     def clean(self):
@@ -77,11 +76,7 @@ class EventSettingsForm(ReadOnlyFlag, SettingsForm):
         self.fields["custom_field_id"].choices = [(q, q) for q in custom_fields]
         self.fields["custom_field_state"].choices = [(q, q) for q in custom_fields]
 
-    queue = forms.ChoiceField(
-        label=_("Queue"),
-        choices=[],
-        required=True,
-    )
+    queue = forms.ChoiceField(label=_("Queue"), choices=[], required=True)
     custom_field_id = forms.ChoiceField(
         label=_("ID Field"),
         help_text=_("Custom field in RT to store reference to pretalx ID."),
@@ -94,9 +89,7 @@ class EventSettingsForm(ReadOnlyFlag, SettingsForm):
     class Meta:
         model = EventSettings
         exclude = ["event", "rest_auth_token"]
-        widgets = {
-            "sync_interval": TextInputWithAddon(addon_after=_("minutes")),
-        }
+        widgets = {"sync_interval": TextInputWithAddon(addon_after=_("minutes"))}
 
 
 class UserSettingsForm(SettingsForm):

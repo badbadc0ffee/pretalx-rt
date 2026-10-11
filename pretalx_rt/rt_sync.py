@@ -2,10 +2,11 @@ import logging
 
 from django.utils.timezone import now
 from django_scopes import scope
+from rt.rest2 import Attachment, Rt
+
 from pretalx.celery_app import app
 from pretalx.event.models import Event
 from pretalx.mail.enums import QueuedMailStates
-from rt.rest2 import Attachment, Rt
 
 from .models import EventSettings, Ticket
 
@@ -15,18 +16,13 @@ class RTSync:
         self.event = event
         self.settings = EventSettings.objects.get(event=event)
         self.logger = logging.getLogger(__name__)
-        user_settings = (
-            user.rt_settings.filter(event=event).first() if user else None
-        )
+        user_settings = user.rt_settings.filter(event=event).first() if user else None
         token = (
             user_settings.rest_auth_token
             if user_settings and user_settings.rest_auth_token
             else self.settings.rest_auth_token
         )
-        self.rt = Rt(
-            url=self.settings.rest_api_url,
-            token=token,
-        )
+        self.rt = Rt(url=self.settings.rest_api_url, token=token)
 
     def get_queues(self):
         try:
@@ -54,7 +50,8 @@ class RTSync:
                 queue=self.settings.queue,
                 subject=submission.title,
                 Requestor=self.requestors(
-                    speaker.user for speaker in submission.speakers.select_related("user")
+                    speaker.user
+                    for speaker in submission.speakers.select_related("user")
                 ),
                 Status=self.settings.initial_status,
                 Owner="Nobody",
@@ -149,9 +146,7 @@ class RTSync:
 
         try:
             self.rt.comment(
-                ticket.rt_id,
-                content=rich_text(comment.text),
-                content_type="text/html",
+                ticket.rt_id, content=rich_text(comment.text), content_type="text/html"
             )
         finally:
             self.rt.edit_ticket(
@@ -173,7 +168,8 @@ class RTSync:
                 ticket.rt_id,
                 Subject=ticket.submission.title,
                 Requestor=self.requestors(
-                    speaker.user for speaker in ticket.submission.speakers.select_related("user")
+                    speaker.user
+                    for speaker in ticket.submission.speakers.select_related("user")
                 ),
                 CustomFields={
                     self.settings.custom_field_id: ticket.submission.code,
@@ -304,4 +300,3 @@ def ticket_push_task(self, event_id: int, ticket_id: int):
     event = Event.objects.get(id=event_id)
     with scope(event=event):
         RTSync(event).push(Ticket.objects.get(id=ticket_id))
-

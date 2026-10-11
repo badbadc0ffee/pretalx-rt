@@ -6,6 +6,7 @@ from django.dispatch import receiver
 from django.template import loader
 from django.urls import reverse
 from django.utils.timezone import now
+
 from pretalx.common.signals import (
     minimum_interval,
     periodic_task,
@@ -38,8 +39,7 @@ def pretalx_rt_settings(sender, request, **kwargs):
         {
             "label": "RT",
             "url": reverse(
-                "plugins:pretalx_rt:settings",
-                kwargs={"event": request.event.slug},
+                "plugins:pretalx_rt:settings", kwargs={"event": request.event.slug}
             ),
             "active": request.resolver_match.url_name == "plugins:pretalx_rt:settings",
         }
@@ -96,11 +96,7 @@ try:
 
         template = loader.get_template("pretalx_rt/samaware.html")
         return template.render(
-            {
-                "event": sender,
-                "tickets": [submission.rt_ticket],
-            },
-            None,
+            {"event": sender, "tickets": [submission.rt_ticket]}, None
         )
 
 except ImportError:

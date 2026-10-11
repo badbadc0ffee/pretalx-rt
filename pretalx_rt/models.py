@@ -5,21 +5,17 @@ from django.utils.translation import gettext_lazy as _
 
 class EventSettings(models.Model):
     event = models.OneToOneField(
-        to="event.Event",
-        on_delete=models.CASCADE,
-        related_name="rt_settings",
+        to="event.Event", on_delete=models.CASCADE, related_name="rt_settings"
     )
     base_url = models.URLField(
-        verbose_name=_("Base URL"),
-        help_text=_("Base URL for Request Tracker."),
+        verbose_name=_("Base URL"), help_text=_("Base URL for Request Tracker.")
     )
     rest_auth_token = models.CharField(
         verbose_name=_("Auth Token"),
         help_text=_("Authorization token for Request Tracker REST 2.0 API."),
     )
     queue = models.CharField(
-        verbose_name=_("Queue"),
-        help_text=_("RT Queue for this event."),
+        verbose_name=_("Queue"), help_text=_("RT Queue for this event.")
     )
     initial_status = models.CharField(
         verbose_name=_("Initial state"),
@@ -53,14 +49,9 @@ class EventSettings(models.Model):
 
 
 class UserSettings(models.Model):
-    event = models.ForeignKey(
-        to="event.Event",
-        on_delete=models.CASCADE,
-    )
+    event = models.ForeignKey(to="event.Event", on_delete=models.CASCADE)
     user = models.ForeignKey(
-        to="person.User",
-        on_delete=models.CASCADE,
-        related_name="rt_settings",
+        to="person.User", on_delete=models.CASCADE, related_name="rt_settings"
     )
     rest_auth_token = models.CharField(
         verbose_name=_("Auth Token"),
@@ -70,13 +61,10 @@ class UserSettings(models.Model):
 
 class Ticket(models.Model):
     event = models.ForeignKey(
-        to="event.Event",
-        on_delete=models.CASCADE,
-        related_name="rt_tickets",
+        to="event.Event", on_delete=models.CASCADE, related_name="rt_tickets"
     )
     rt_id = models.PositiveIntegerField(
-        verbose_name=_("Ticket ID"),
-        help_text=_("The numeric ID of the ticket in RT."),
+        verbose_name=_("Ticket ID"), help_text=_("The numeric ID of the ticket in RT.")
     )
     subject = models.CharField(
         max_length=200,
@@ -93,19 +81,14 @@ class Ticket(models.Model):
         verbose_name=_("Queue"),
         help_text=_("The queue of the ticket in RT."),
     )
-    mails = models.ManyToManyField(
-        to="mail.QueuedMail",
-        related_name="rt_tickets",
-    )
+    mails = models.ManyToManyField(to="mail.QueuedMail", related_name="rt_tickets")
     submission = models.OneToOneField(
         to="submission.Submission",
         related_name="rt_ticket",
         on_delete=models.SET_NULL,
         null=True,
     )
-    sync_timestamp = models.DateTimeField(
-        auto_now_add=True,
-    )
+    sync_timestamp = models.DateTimeField(auto_now_add=True)
 
     @property
     def url(self):
@@ -114,31 +97,25 @@ class Ticket(models.Model):
 
     @property
     def status_class(self):
-        if self.status == "new":
+        if self.status == "new" or self.status == "open":
             return "text-info"
-        elif self.status == "open":
-            return "text-info"
-        elif self.status == "resolved":
+        if self.status == "resolved":
             return "text-success"
-        elif self.status == "rejected":
+        if self.status == "rejected" or self.status == "stalled":
             return "text-danger"
-        elif self.status == "stalled":
-            return "text-danger"
-        else:
-            return ""
+        return ""
 
     @property
     @mark_safe
     def status_text(self):
         if self.status == "new":
             return "<i class='fa fa-inbox'></i>&nbsp;&nbsp;new"
-        elif self.status == "open":
+        if self.status == "open":
             return "<i class='fa fa-question-circle'></i>&nbsp;&nbsp;open"
-        elif self.status == "stalled":
+        if self.status == "stalled":
             return "<i class='fa fa-warning'></i>&nbsp;&nbsp;stalled"
-        elif self.status == "resolved":
+        if self.status == "resolved":
             return "<i class='fa fa-check-circle'></i>&nbsp;&nbsp;resolved"
-        elif self.status == "rejected":
+        if self.status == "rejected":
             return "<i class='fa fa-ban'></i>&nbsp;&nbsp;rejected"
-        else:
-            return self.status
+        return self.status

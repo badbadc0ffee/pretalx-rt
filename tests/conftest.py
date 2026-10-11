@@ -3,6 +3,7 @@ import datetime as dt
 import pytest
 from django.core import management
 from django_scopes import scopes_disabled
+
 from pretalx.event.domain.event import initialise_event
 from pretalx.event.domain.plugins import enable_plugin
 from pretalx.event.models import Event, Organiser, Team

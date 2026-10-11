@@ -2,6 +2,7 @@ from unittest import mock
 
 import pytest
 from django_scopes import scopes_disabled
+
 from pretalx.event.models import Event
 
 from pretalx_rt.models import EventSettings, UserSettings
