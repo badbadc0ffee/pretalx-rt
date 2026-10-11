@@ -14,11 +14,12 @@ class RTSync:
     def __init__(self, event, user=None):
         self.event = event
         self.logger = logging.getLogger(__name__)
+        user_settings = (
+            user.rt_settings.filter(event=event).first() if user else None
+        )
         token = (
-            user.rt_settings.rest_auth_token
-            if user
-            and hasattr(user, "rt_settings")
-            and user.rt_settings.rest_auth_token
+            user_settings.rest_auth_token
+            if user_settings and user_settings.rest_auth_token
             else event.rt_settings.rest_auth_token
         )
         self.rt = Rt(
