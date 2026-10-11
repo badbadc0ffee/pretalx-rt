@@ -53,7 +53,7 @@ class EventSettingsForm(ReadOnlyFlag, SettingsForm):
         super().__init__(*args, **kwargs, instance=self.instance)
         queues = RTSync(event=event).get_queues()
         if not queues:
-            queues = [event.rt_settings.queue or "Default"]
+            queues = [self.instance.queue or "Default"]
             self.fields[
                 "queue"
             ].help_text += " <i class='fa fa-warning text-warning' aria-hidden='true'></i> No RT queues accessible. Please check your RT permissions."
@@ -63,8 +63,8 @@ class EventSettingsForm(ReadOnlyFlag, SettingsForm):
         custom_fields = RTSync(event=event).get_custom_fields()
         if not custom_fields:
             custom_fields = [
-                event.rt_settings.custom_field_id,
-                event.rt_settings.custom_field_state,
+                self.instance.custom_field_id,
+                self.instance.custom_field_state,
             ]
             self.fields[
                 "custom_field_id"

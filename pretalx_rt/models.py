@@ -109,7 +109,8 @@ class Ticket(models.Model):
 
     @property
     def url(self):
-        return f"{self.event.rt_settings.base_url}Ticket/Display.html?id={self.rt_id}"
+        base_url = EventSettings.objects.get(event_id=self.event_id).base_url
+        return f"{base_url}Ticket/Display.html?id={self.rt_id}"
 
     @property
     def status_class(self):

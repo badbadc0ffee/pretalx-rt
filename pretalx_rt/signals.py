@@ -16,7 +16,7 @@ from pretalx.orga.signals import mail_form, nav_event_settings, submission_form
 from pretalx.submission.models import Submission, SubmissionComment, SubmissionStates
 
 from .forms import RTForm
-from .models import Ticket
+from .models import EventSettings, Ticket
 from .rt_sync import RTSync, ticket_pull_task, ticket_push_task
 
 logger = logging.getLogger(__name__)
@@ -231,5 +231,6 @@ def needs_sync(ticket):
     if ticket.sync_timestamp is None:
         return True
 
-    interval = timedelta(minutes=int(ticket.event.rt_settings.sync_interval))
+    sync_interval = EventSettings.objects.get(event=ticket.event).sync_interval
+    interval = timedelta(minutes=int(sync_interval))
     return (now() - ticket.sync_timestamp) > interval

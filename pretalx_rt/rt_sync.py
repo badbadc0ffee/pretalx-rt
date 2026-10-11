@@ -7,12 +7,13 @@ from pretalx.event.models import Event
 from pretalx.mail.enums import QueuedMailStates
 from rt.rest2 import Attachment, Rt
 
-from .models import Ticket
+from .models import EventSettings, Ticket
 
 
 class RTSync:
     def __init__(self, event, user=None):
         self.event = event
+        self.settings = EventSettings.objects.get(event=event)
         self.logger = logging.getLogger(__name__)
         user_settings = (
             user.rt_settings.filter(event=event).first() if user else None
@@ -20,10 +21,10 @@ class RTSync:
         token = (
             user_settings.rest_auth_token
             if user_settings and user_settings.rest_auth_token
-            else event.rt_settings.rest_auth_token
+            else self.settings.rest_auth_token
         )
         self.rt = Rt(
-            url=event.rt_settings.rest_api_url,
+            url=self.settings.rest_api_url,
             token=token,
         )
 
@@ -37,7 +38,7 @@ class RTSync:
 
     def get_custom_fields(self):
         try:
-            queue_data = self.rt.get_queue(self.event.rt_settings.queue)
+            queue_data = self.rt.get_queue(self.settings.queue)
             ticket_custom_fields = queue_data.get("TicketCustomFields", [])
             return [cf.get("name") for cf in ticket_custom_fields or [] if "name" in cf]
         except Exception as e:
@@ -50,16 +51,16 @@ class RTSync:
 
         try:
             rt_id = self.rt.create_ticket(
-                queue=self.event.rt_settings.queue,
+                queue=self.settings.queue,
                 subject=submission.title,
                 Requestor=self.requestors(
                     speaker.user for speaker in submission.speakers.select_related("user")
                 ),
-                Status=self.event.rt_settings.initial_status,
+                Status=self.settings.initial_status,
                 Owner="Nobody",
                 CustomFields={
-                    self.event.rt_settings.custom_field_id: submission.code,
-                    self.event.rt_settings.custom_field_state: submission.state,
+                    self.settings.custom_field_id: submission.code,
+                    self.settings.custom_field_state: submission.state,
                 },
             )
 
@@ -76,10 +77,10 @@ class RTSync:
 
         try:
             rt_id = self.rt.create_ticket(
-                queue=self.event.rt_settings.queue,
+                queue=self.settings.queue,
                 subject=mail.subject,
                 Requestor=self.requestors(mail.to_users.all()),
-                Status=self.event.rt_settings.initial_status,
+                Status=self.settings.initial_status,
                 Owner="Nobody",
             )
 
@@ -114,7 +115,7 @@ class RTSync:
                 for att in mail.attachments or []
             ]
 
-            html = self.event.rt_settings.is_mail_html
+            html = self.settings.is_mail_html
             self.rt.reply(
                 ticket.rt_id,
                 content=mail.text_html if html else mail.text,
@@ -175,8 +176,8 @@ class RTSync:
                     speaker.user for speaker in ticket.submission.speakers.select_related("user")
                 ),
                 CustomFields={
-                    self.event.rt_settings.custom_field_id: ticket.submission.code,
-                    self.event.rt_settings.custom_field_state: ticket.submission.state,
+                    self.settings.custom_field_id: ticket.submission.code,
+                    self.settings.custom_field_state: ticket.submission.state,
                 },
             )
         except Exception as e:
@@ -220,7 +221,7 @@ class RTSync:
 
     def sync_queue(self):
         """Sync RT queue to Pretalx tickets, creating submission links if valid."""
-        queue_name = self.event.rt_settings.queue
+        queue_name = self.settings.queue
         self.logger.info(f"Starting sync of RT queue '{queue_name}'")
 
         submissions_by_code = {
@@ -245,9 +246,7 @@ class RTSync:
         updated_tickets = 0
 
         for rt_ticket in tickets:
-            pretalx_id = self.get_custom_field(
-                rt_ticket, self.event.rt_settings.custom_field_id
-            )
+            pretalx_id = self.get_custom_field(rt_ticket, self.settings.custom_field_id)
             if not pretalx_id:
                 self.logger.debug(f"Skipping RT #{rt_ticket['id']} (no Submission)")
                 continue
