@@ -225,16 +225,18 @@ def pretalx_rt_submission_speaker_changed(sender, instance, action, **kwargs):
 def is_enabled(event):
     """Check if RT integration is enabled and configured for the event."""
     return (
-        "pretalx_rt" in event.plugin_list
-        and EventSettings.objects.filter(event=event).exists()
+        "pretalx_rt" in event.plugin_list and EventSettings.for_event(event) is not None
     )
 
 
 def needs_sync(ticket):
     """Check if a ticket needs to be synced based on the sync interval."""
+    settings = EventSettings.for_event(ticket.event_id)
+    if settings is None:
+        return False
+
     if ticket.sync_timestamp is None:
         return True
 
-    sync_interval = EventSettings.objects.get(event=ticket.event).sync_interval
-    interval = timedelta(minutes=int(sync_interval))
+    interval = timedelta(minutes=int(settings.sync_interval))
     return (now() - ticket.sync_timestamp) > interval

@@ -55,6 +55,11 @@ class EventSettings(models.Model):
     def __str__(self):
         return f"EventSettings(event_id={self.event_id})"
 
+    @classmethod
+    def for_event(cls, event):
+        """Return the settings of an event (or of an event id), or None."""
+        return cls.objects.filter(event=event).first()
+
     @property
     def rest_api_url(self):
         return self.base_url + "REST/2.0/"
@@ -114,8 +119,10 @@ class Ticket(models.Model):
 
     @property
     def url(self):
-        base_url = EventSettings.objects.get(event_id=self.event_id).base_url
-        return f"{base_url}Ticket/Display.html?id={self.rt_id}"
+        settings = EventSettings.for_event(self.event_id)
+        if settings is None:
+            return ""
+        return f"{settings.base_url}Ticket/Display.html?id={self.rt_id}"
 
     @property
     def status_class(self):

@@ -15,7 +15,9 @@ from .models import EventSettings, Ticket
 class RTSync:
     def __init__(self, event, user=None):
         self.event = event
-        self.settings = EventSettings.objects.get(event=event)
+        self.settings = EventSettings.for_event(event)
+        if self.settings is None:
+            raise EventSettings.DoesNotExist(f"No RT settings for event {event}")
         self.logger = logging.getLogger(__name__)
         user_settings = user.rt_settings.filter(event=event).first() if user else None
         token = (

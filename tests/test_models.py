@@ -2,8 +2,11 @@ from datetime import timedelta
 
 import pytest
 from django.utils import timezone
+from django_scopes import scopes_disabled
 
-from pretalx_rt.models import Ticket, UserSettings
+from pretalx.event.models import Event
+
+from pretalx_rt.models import EventSettings, Ticket, UserSettings
 from pretalx_rt.signals import needs_sync
 
 
@@ -87,3 +90,30 @@ def test_needs_sync_depends_on_interval(plain_ticket, event_settings):
 def test_needs_sync_without_timestamp(plain_ticket, event_settings):
     plain_ticket.sync_timestamp = None
     assert needs_sync(plain_ticket)
+
+
+@pytest.mark.django_db
+def test_event_settings_for_event(event, event_settings, organiser):
+    with scopes_disabled():
+        other = Event.objects.create(
+            name="Other Event",
+            slug="other",
+            email="event@example.org",
+            date_from=event.date_from,
+            date_to=event.date_to,
+            organiser=organiser,
+        )
+    assert EventSettings.for_event(event) == event_settings
+    assert EventSettings.for_event(event.pk) == event_settings
+    assert EventSettings.for_event(other) is None
+
+
+@pytest.mark.django_db
+def test_ticket_url_without_settings_is_empty(plain_ticket):
+    assert plain_ticket.url == ""
+
+
+@pytest.mark.django_db
+def test_needs_sync_is_false_without_settings(plain_ticket):
+    plain_ticket.sync_timestamp = None
+    assert not needs_sync(plain_ticket)
