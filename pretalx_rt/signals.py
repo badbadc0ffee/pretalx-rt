@@ -72,7 +72,7 @@ def pretalx_rt_submission_form(sender, request, instance, **kwargs):
 
     Returns a form for the RT ticket if the submission has one.
     """
-    if ticket := getattr(instance, "rt_ticket", None):
+    if ticket := Ticket.for_submission(instance):
         if needs_sync(ticket):
             ticket_pull_task.apply_async(
                 kwargs={"event_id": sender.pk, "ticket_id": ticket.pk}
@@ -91,13 +91,12 @@ try:
 
         Renders the RT ticket information in the SamAware template if available.
         """
-        if not hasattr(submission, "rt_ticket"):
+        ticket = Ticket.for_submission(submission)
+        if ticket is None:
             return None
 
         template = loader.get_template("pretalx_rt/samaware.html")
-        return template.render(
-            {"event": sender, "tickets": [submission.rt_ticket]}, None
-        )
+        return template.render({"event": sender, "tickets": [ticket]}, None)
 
 except ImportError:
     pass
@@ -142,7 +141,7 @@ def pretalx_rt_queuedmail_pre_send(sender, mail, **kwargs):
     # Try to get or create submission-related ticket
     if mail.submissions.count() == 1:
         submission = mail.submissions.first()
-        ticket = getattr(submission, "rt_ticket", None)
+        ticket = Ticket.for_submission(submission)
         if ticket is None:
             ticket = rt_sync.create_submission_ticket(submission)
 
@@ -164,7 +163,7 @@ def pretalx_rt_submission_comment_saved(sender, instance, created, **kwargs):
 
     rt_sync = RTSync(instance.event, instance.user)
 
-    ticket = getattr(instance.submission, "rt_ticket", None)
+    ticket = Ticket.for_submission(instance.submission)
     if ticket is None:
         ticket = rt_sync.create_submission_ticket(instance.submission)
 
@@ -183,7 +182,7 @@ def pretalx_rt_submission_changed(sender, instance, **kwargs):
 
     rt_sync = RTSync(instance.event)
 
-    ticket = getattr(instance, "rt_ticket", None)
+    ticket = Ticket.for_submission(instance)
     if ticket is None:
         ticket = rt_sync.create_submission_ticket(instance)
 
@@ -207,7 +206,7 @@ def pretalx_rt_submission_speaker_changed(sender, instance, action, **kwargs):
 
     rt_sync = RTSync(instance.event)
 
-    ticket = getattr(instance, "rt_ticket", None)
+    ticket = Ticket.for_submission(instance)
     if ticket is None:
         ticket = rt_sync.create_submission_ticket(instance)
 

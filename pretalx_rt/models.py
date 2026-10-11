@@ -108,6 +108,10 @@ class Ticket(models.Model):
     def __str__(self):
         return f"Ticket(rt_id={self.rt_id})"
 
+    @classmethod
+    def for_submission(cls, submission):
+        return cls.objects.filter(submission=submission).first()
+
     @property
     def url(self):
         base_url = EventSettings.objects.get(event_id=self.event_id).base_url
