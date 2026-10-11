@@ -1,0 +1,62 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - 'pretalx_rt/locale/**'
+  pull_request:
+    branches: [ main ]
+    paths-ignore:
+      - 'pretalx_rt/locale/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        database: [sqlite, postgres]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: pretalx
+        options: >-
+          --health-cmd "pg_isready -U postgres -d pretalx"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version-file: ".github/workflows/python-version.txt"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - uses: extractions/setup-just@v3
+      - name: Install postgres driver
+        if: matrix.database == 'postgres'
+        run: uv sync --extra=dev && uv pip install psycopg2-binary
+      - name: Run tests
+        if: matrix.database == 'sqlite'
+        run: just test
+      - name: Run tests
+        if: matrix.database == 'postgres'
+        run: just test
+        env:
+          PRETALX_DB_TYPE: postgresql
+          PRETALX_DB_NAME: pretalx
+          PRETALX_DB_USER: postgres
+          PRETALX_DB_PASS: postgres
+          PRETALX_DB_HOST: localhost

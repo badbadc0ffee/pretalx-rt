@@ -3,4 +3,4 @@ recursive-include pretalx_rt/templates *
 exclude pretalx_rt/locale/django.pot
 recursive-include pretalx_rt/locale *
 recursive-include pretalx_rt *.py
-include Makefile
+include justfile

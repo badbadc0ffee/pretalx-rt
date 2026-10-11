@@ -17,7 +17,7 @@ class PluginApp(AppConfig):
             "the exception of mails that will be sent out to reset passwords. Those will still be sent out via SMTP "
             "directly."
             "\n"
-            "Information regarding the corresponding RT ticket will be included in the submission and speaker forms "
+            "Information regarding the corresponding RT ticket will be included in the submission and mail forms "
             "in the pretalx orga interface. The plugin will keep track of the RT ticket related to each submission "
             "and will reuse that ticket for all notifications that are sent out to the speakers."
             "\n"
@@ -27,6 +27,7 @@ class PluginApp(AppConfig):
         visible = True
         version = __version__
         category = "INTEGRATION"
+        settings_links = [(gettext_lazy("Settings"), "plugins:pretalx_rt:settings", {})]
 
     def ready(self):
-        from . import signals  # NOQA
+        from . import signals  # noqa: PLC0415, F401

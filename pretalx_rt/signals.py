@@ -6,6 +6,7 @@ from django.dispatch import receiver
 from django.template import loader
 from django.urls import reverse
 from django.utils.timezone import now
+
 from pretalx.common.signals import (
     minimum_interval,
     periodic_task,
@@ -16,7 +17,7 @@ from pretalx.orga.signals import mail_form, nav_event_settings, submission_form
 from pretalx.submission.models import Submission, SubmissionComment, SubmissionStates
 
 from .forms import RTForm
-from .models import Ticket
+from .models import EventSettings, Ticket
 from .rt_sync import RTSync, ticket_pull_task, ticket_push_task
 
 logger = logging.getLogger(__name__)
@@ -38,8 +39,7 @@ def pretalx_rt_settings(sender, request, **kwargs):
         {
             "label": "RT",
             "url": reverse(
-                "plugins:pretalx_rt:settings",
-                kwargs={"event": request.event.slug},
+                "plugins:pretalx_rt:settings", kwargs={"event": request.event.slug}
             ),
             "active": request.resolver_match.url_name == "plugins:pretalx_rt:settings",
         }
@@ -50,7 +50,7 @@ def pretalx_rt_settings(sender, request, **kwargs):
 def pretalx_rt_data_exporter(sender, **kwargs):
     """Register the RT data exporter for pretalx."""
     logger.debug("Registering RT data exporter")
-    from .exporter import Exporter
+    from .exporter import Exporter  # noqa: PLC0415 -- loaded lazily
 
     return Exporter
 
@@ -72,7 +72,7 @@ def pretalx_rt_submission_form(sender, request, instance, **kwargs):
 
     Returns a form for the RT ticket if the submission has one.
     """
-    if ticket := getattr(instance, "rt_ticket", None):
+    if ticket := Ticket.for_submission(instance):
         if needs_sync(ticket):
             ticket_pull_task.apply_async(
                 kwargs={"event_id": sender.pk, "ticket_id": ticket.pk}
@@ -91,17 +91,12 @@ try:
 
         Renders the RT ticket information in the SamAware template if available.
         """
-        if not hasattr(submission, "rt_ticket"):
+        ticket = Ticket.for_submission(submission)
+        if ticket is None:
             return None
 
         template = loader.get_template("pretalx_rt/samaware.html")
-        return template.render(
-            {
-                "event": sender,
-                "tickets": [submission.rt_ticket],
-            },
-            None,
-        )
+        return template.render({"event": sender, "tickets": [ticket]}, None)
 
 except ImportError:
     pass
@@ -126,7 +121,7 @@ def pretalx_rt_periodic_pull(sender, **kwargs):
             logger.debug("Periodic sync time limit reached")
             return
 
-        event = ticket.submission.event
+        event = ticket.event
 
         if is_enabled(event) and needs_sync(ticket):
             RTSync(event).pull(ticket)
@@ -146,13 +141,19 @@ def pretalx_rt_queuedmail_pre_send(sender, mail, **kwargs):
     # Try to get or create submission-related ticket
     if mail.submissions.count() == 1:
         submission = mail.submissions.first()
-        ticket = getattr(submission, "rt_ticket", None)
+        ticket = Ticket.for_submission(submission)
         if ticket is None:
             ticket = rt_sync.create_submission_ticket(submission)
 
     # Create standalone mail ticket if no submission ticket exists
     if ticket is None:
         ticket = rt_sync.create_mail_ticket(mail)
+
+    if ticket is None:
+        logger.warning(
+            "No RT ticket for mail %s, leaving it to the regular mail backend", mail.pk
+        )
+        return
 
     rt_sync.add_mail_to_ticket(ticket, mail)
 
@@ -168,7 +169,7 @@ def pretalx_rt_submission_comment_saved(sender, instance, created, **kwargs):
 
     rt_sync = RTSync(instance.event, instance.user)
 
-    ticket = getattr(instance.submission, "rt_ticket", None)
+    ticket = Ticket.for_submission(instance.submission)
     if ticket is None:
         ticket = rt_sync.create_submission_ticket(instance.submission)
 
@@ -187,7 +188,7 @@ def pretalx_rt_submission_changed(sender, instance, **kwargs):
 
     rt_sync = RTSync(instance.event)
 
-    ticket = getattr(instance, "rt_ticket", None)
+    ticket = Ticket.for_submission(instance)
     if ticket is None:
         ticket = rt_sync.create_submission_ticket(instance)
 
@@ -211,7 +212,7 @@ def pretalx_rt_submission_speaker_changed(sender, instance, action, **kwargs):
 
     rt_sync = RTSync(instance.event)
 
-    ticket = getattr(instance, "rt_ticket", None)
+    ticket = Ticket.for_submission(instance)
     if ticket is None:
         ticket = rt_sync.create_submission_ticket(instance)
 
@@ -222,14 +223,20 @@ def pretalx_rt_submission_speaker_changed(sender, instance, action, **kwargs):
 
 
 def is_enabled(event):
-    """Check if RT integration is enabled for the event."""
-    return "pretalx_rt" in event.plugin_list
+    """Check if RT integration is enabled and configured for the event."""
+    return (
+        "pretalx_rt" in event.plugin_list and EventSettings.for_event(event) is not None
+    )
 
 
 def needs_sync(ticket):
     """Check if a ticket needs to be synced based on the sync interval."""
+    settings = EventSettings.for_event(ticket.event_id)
+    if settings is None:
+        return False
+
     if ticket.sync_timestamp is None:
         return True
 
-    interval = timedelta(minutes=int(ticket.event.rt_settings.sync_interval))
+    interval = timedelta(minutes=int(settings.sync_interval))
     return (now() - ticket.sync_timestamp) > interval

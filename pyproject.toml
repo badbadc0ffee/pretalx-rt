@@ -12,17 +12,18 @@ maintainers = [
   {name = "Florian Moesch", email = "florian@moesch.org"},
 ]
 
+requires-python = ">=3.11"
 dependencies = [
   "rt",
 ]
 
 [project.optional-dependencies]
 dev = [
-  "black",
-  "build",
-  "check-manifest",
-  "flake8",
-  "isort",
+  "djangofmt",
+  "pytest",
+  "pytest-cov",
+  "pytest-django",
+  "ruff",
 ]
 
 [project.urls]
@@ -46,4 +47,89 @@ version = {attr = "pretalx_rt.__version__"}
 include = ["pretalx*"]
 
 [tool.check-manifest]
-ignore = [".*"]
+ignore = [".*", "tests/*", "justfile"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "pretalx.common.settings.test_settings"
+django_find_project = false
+testpaths = "tests"
+addopts = "--cov=pretalx_rt --cov-report=term-missing:skip-covered --cov-config=pyproject.toml"
+
+[tool.coverage.run]
+branch = true
+relative_files = true
+source = ["pretalx_rt"]
+omit = ["*/migrations/*", "*/urls.py", "*/tests/*"]
+
+[tool.coverage.report]
+exclude_also = [
+  "def __repr__",
+  "def __str__",
+  "if settings.DEBUG",
+  "NOQA",
+  "noqa",
+  "NotImplementedError",
+]
+
+[tool.ruff.format]
+skip-magic-trailing-comma = true
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+  "ANN",     # We do not do annotations
+  "ARG",     # Unused method arguments are often ok
+  "C901",    # We do do complexity
+  "COM812",  # Trailing commas are formatter territory
+  "CPY",     # We do not use copyright header notices
+  "D",       # We do not enforce docstyles
+  "DJ001",   # We live in a state of sin
+  "E501",    # Long lines are formatter territory
+  "EM",      # Formatting strings is fine, actually
+  "FBT",     # Booleans are fine, actually
+  "FIX",     # TODO comments are fine, actually
+  "PLR",     # Refactoring: Too many branches, arguments, statements, etc
+  "RET502",  # Just returning is fine, actually
+  "RET503",  # Just not returning is fine, actually
+  "RUF012",  # Mutable default in class attribute is just how django rolls
+  "RUF100",  # Unused noqa; problematic when run in isolation
+  "TRY003",  # Error messages are fine, actually
+]
+allowed-confusables = ["–", "'", "×"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**.py" = [
+  "DTZ",     # TODO: do not use naive datetimes in tests
+  "INP001",  # Tests don't need __init__.py
+  "RUF",     # Ignore ambiguous characters in tests, may be security tests
+  "S",       # Tests do not need cryptographic randomness and other security features
+  "S101",    # Ignore `assert` rules in tests
+  "SLF001",  # TODO: remove SLF001, fix private access
+  "TRY",     # Exception handling is special in tests
+]
+
+[tool.ruff.lint.flake8-pytest-style]
+parametrize-values-type = "tuple"
+
+[tool.ruff.lint.flake8-self]
+extend-ignore-names = ["_base_manager", "_default_manager",  "_meta"]
+
+[tool.ruff.lint.isort]
+split-on-trailing-comma = false
+section-order = ["future", "standard-library", "third-party", "pretalx", "first-party", "local-folder"]
+
+[tool.ruff.lint.isort.sections]
+pretalx = ["pretalx"]
+
+[tool.ruff.lint.pep8-naming]
+extend-ignore-names = [
+  "allDay",
+  "api_urls",
+  "EventSettings",
+  "extendMarkdown",
+  "get_allDay",
+  "orga_urls",
+  "SendMailException",
+  "setUpTestData",
+  "urls",
+]

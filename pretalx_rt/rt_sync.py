@@ -1,68 +1,74 @@
 import logging
 
 from django.utils.timezone import now
-from pretalx.celery_app import app
-from pretalx.event.models import Event
+from django_scopes import scope
 from rt.rest2 import Attachment, Rt
 
-from .models import Ticket
+from pretalx.celery_app import app
+from pretalx.common.templatetags.rich_text import rich_text
+from pretalx.event.models import Event
+from pretalx.mail.enums import QueuedMailStates
+
+from .models import EventSettings, Ticket
 
 
 class RTSync:
     def __init__(self, event, user=None):
         self.event = event
+        self.settings = EventSettings.for_event(event)
+        if self.settings is None:
+            raise EventSettings.DoesNotExist(f"No RT settings for event {event}")
         self.logger = logging.getLogger(__name__)
+        user_settings = user.rt_settings.filter(event=event).first() if user else None
         token = (
-            user.rt_settings.rest_auth_token
-            if user
-            and hasattr(user, "rt_settings")
-            and user.rt_settings.rest_auth_token
-            else event.rt_settings.rest_auth_token
+            user_settings.rest_auth_token
+            if user_settings and user_settings.rest_auth_token
+            else self.settings.rest_auth_token
         )
-        self.rt = Rt(
-            url=event.rt_settings.rest_api_url,
-            token=token,
-        )
+        self.rt = Rt(url=self.settings.rest_api_url, token=token)
 
     def get_queues(self):
         try:
             queues = self.rt.get_all_queues()
             return [q.get("Name") for q in queues or [] if "Name" in q]
-        except Exception as e:
-            self.logger.error(f"Failed to fetch RT queues: {e}")
+        except Exception:  # noqa: BLE001 -- RT errors must not break pretalx
+            self.logger.exception("Failed to fetch RT queues")
             return []
 
     def get_custom_fields(self):
         try:
-            queue_data = self.rt.get_queue(self.event.rt_settings.queue)
+            queue_data = self.rt.get_queue(self.settings.queue)
             ticket_custom_fields = queue_data.get("TicketCustomFields", [])
             return [cf.get("name") for cf in ticket_custom_fields or [] if "name" in cf]
-        except Exception as e:
-            self.logger.error(f"Failed to fetch custom fields: {e}")
+        except Exception:  # noqa: BLE001 -- RT errors must not break pretalx
+            self.logger.exception("Failed to fetch custom fields")
             return []
 
     def create_submission_ticket(self, submission):
         """Create a new RT ticket for a submission."""
-        self.logger.info(f"Creating RT ticket for submission {submission.code}")
+        self.logger.info("Creating RT ticket for submission %s", submission.code)
 
         try:
             rt_id = self.rt.create_ticket(
-                queue=self.event.rt_settings.queue,
+                queue=self.settings.queue,
                 subject=submission.title,
-                Requestor=self.requestors(submission.speakers.all()),
-                Status=self.event.rt_settings.initial_status,
+                Requestor=self.requestors(
+                    speaker.user
+                    for speaker in submission.speakers.select_related("user")
+                ),
+                Status=self.settings.initial_status,
                 Owner="Nobody",
                 CustomFields={
-                    self.event.rt_settings.custom_field_id: submission.code,
-                    self.event.rt_settings.custom_field_state: submission.state,
+                    self.settings.custom_field_id: submission.code,
+                    self.settings.custom_field_state: submission.state,
                 },
             )
 
             ticket = Ticket(event=self.event, rt_id=rt_id, submission=submission)
             self.pull(ticket)
-            return ticket
-        except Exception as e:
-            self.logger.error(f"Failed to create RT ticket: {e}")
+            return ticket  # noqa: TRY300
+        except Exception:  # noqa: BLE001 -- RT errors must not break pretalx
+            self.logger.exception("Failed to create RT ticket")
             return None
 
     def create_mail_ticket(self, mail):
@@ -71,25 +77,28 @@ class RTSync:
 
         try:
             rt_id = self.rt.create_ticket(
-                queue=self.event.rt_settings.queue,
+                queue=self.settings.queue,
                 subject=mail.subject,
                 Requestor=self.requestors(mail.to_users.all()),
-                Status=self.event.rt_settings.initial_status,
+                Status=self.settings.initial_status,
                 Owner="Nobody",
             )
 
             ticket = Ticket(event=self.event, rt_id=rt_id)
             self.pull(ticket)
-            return ticket
-        except Exception as e:
-            self.logger.error(f"Failed to create RT ticket: {e}")
+            return ticket  # noqa: TRY300
+        except Exception:  # noqa: BLE001 -- RT errors must not break pretalx
+            self.logger.exception("Failed to create RT ticket")
             return None
+
     def add_mail_to_ticket(self, ticket, mail):
         """Add a mail as a reply to an RT ticket."""
-        self.logger.info(f"Adding mail to RT #{ticket.rt_id}")
-        old_ticket = self.rt.get_ticket(ticket.rt_id)
+        self.logger.info("Adding mail to RT #%s", ticket.rt_id)
 
         try:
+            mail.state = QueuedMailStates.SENDING
+            mail.save(update_fields=["state"])
+
             self.rt.edit_ticket(
                 ticket.rt_id,
                 Requestor=self.requestors(mail.to_users.all()),
@@ -105,68 +114,62 @@ class RTSync:
                 for att in mail.attachments or []
             ]
 
-            html = self.event.rt_settings.is_mail_html
+            html = self.settings.is_mail_html
             self.rt.reply(
                 ticket.rt_id,
-                content=mail.make_html() if html else mail.make_text(),
+                content=mail.text_html if html else mail.text,
                 content_type="text/html" if html else "text/plain",
                 attachments=attachments,
             )
 
-            mail.sent = now()
-            mail.save()
+            mail.mark_sent()
             ticket.mails.add(mail.id)
             ticket.save()
 
+        except Exception as e:  # noqa: BLE001 -- RT errors must not break pretalx
+            mail.error_data = {"error": str(e), "type": type(e).__name__}
+            mail.error_timestamp = now()
+            mail.save(update_fields=["error_data", "error_timestamp"])
+            self.logger.exception("Failed to add mail to RT ticket #%s", ticket.rt_id)
+
         finally:
-            self.rt.edit_ticket(
-                ticket.rt_id,
-                Requestor=old_ticket["Requestor"],
-                Subject=old_ticket["Subject"],
-                Status=old_ticket["Status"],
-            )
+            self.push(ticket)
 
     def add_comment_to_ticket(self, ticket, comment):
-        """Add a comment to an RT ticket."""
-        self.logger.info(f"Adding comment to RT #{ticket.rt_id}")
-        old_ticket = self.rt.get_ticket(ticket.rt_id)
-        from pretalx.common.templatetags.rich_text import rich_text
+        """Add a comment to an RT ticket, then sync the ticket towards RT."""
+        self.logger.info("Adding comment to RT #%s", ticket.rt_id)
 
         try:
             self.rt.comment(
-                ticket.rt_id,
-                content=rich_text(comment.text),
-                content_type="text/html",
+                ticket.rt_id, content=rich_text(comment.text), content_type="text/html"
             )
         finally:
-            self.rt.edit_ticket(
-                ticket.rt_id,
-                Requestor=old_ticket["Requestor"],
-                Subject=old_ticket["Subject"],
-                Status=old_ticket["Status"],
-            )
+            self.push(ticket)
 
     def push(self, ticket):
         """Push updates from pretalx to RT ticket."""
         if not ticket.submission:
             return
 
-        self.logger.info(f"Pushing updates to RT #{ticket.rt_id}")
+        self.logger.info("Pushing updates to RT #%s", ticket.rt_id)
 
         try:
             self.rt.edit_ticket(
                 ticket.rt_id,
                 Subject=ticket.submission.title,
-                Requestor=self.requestors(ticket.submission.speakers.all()),
+                Requestor=self.requestors(
+                    speaker.user
+                    for speaker in ticket.submission.speakers.select_related("user")
+                ),
                 CustomFields={
-                    self.event.rt_settings.custom_field_id: ticket.submission.code,
-                    self.event.rt_settings.custom_field_state: ticket.submission.state,
+                    self.settings.custom_field_id: ticket.submission.code,
+                    self.settings.custom_field_state: ticket.submission.state,
                 },
             )
-        except Exception as e:
+        except Exception:  # noqa: BLE001 -- RT errors must not break pretalx
             # Unfortunately, even if the update fails because of missing permissions,
             # RT still returns a 200 OK response, so we have to check the result.
-            self.logger.error(f"Failed to push RT ticket #{ticket.rt_id}: {e}")
+            self.logger.exception("Failed to push RT ticket #%s", ticket.rt_id)
             return
         ticket_pull_task.apply_async(
             kwargs={"event_id": self.event.pk, "ticket_id": ticket.pk}
@@ -174,11 +177,11 @@ class RTSync:
 
     def pull(self, ticket):
         """Pull updates from RT ticket to pretalx."""
-        self.logger.info(f"Pulling updates from RT #{ticket.rt_id}")
+        self.logger.info("Pulling updates from RT #%s", ticket.rt_id)
         try:
             rt_ticket = self.rt.get_ticket(ticket.rt_id)
-        except Exception as e:
-            self.logger.error(f"Failed to pull RT ticket #{ticket.rt_id}: {e}")
+        except Exception:  # noqa: BLE001 -- RT errors must not break pretalx
+            self.logger.exception("Failed to pull RT ticket #%s", ticket.rt_id)
             return
 
         ticket.subject = rt_ticket["Subject"]
@@ -204,8 +207,8 @@ class RTSync:
 
     def sync_queue(self):
         """Sync RT queue to Pretalx tickets, creating submission links if valid."""
-        queue_name = self.event.rt_settings.queue
-        self.logger.info(f"Starting sync of RT queue '{queue_name}'")
+        queue_name = self.settings.queue
+        self.logger.info("Starting sync of RT queue '%s'", queue_name)
 
         submissions_by_code = {
             s.code: s for s in self.event.submissions.prefetch_related("speakers").all()
@@ -229,17 +232,17 @@ class RTSync:
         updated_tickets = 0
 
         for rt_ticket in tickets:
-            pretalx_id = self.get_custom_field(
-                rt_ticket, self.event.rt_settings.custom_field_id
-            )
+            pretalx_id = self.get_custom_field(rt_ticket, self.settings.custom_field_id)
             if not pretalx_id:
-                self.logger.debug(f"Skipping RT #{rt_ticket['id']} (no Submission)")
+                self.logger.debug("Skipping RT #%s (no Submission)", rt_ticket["id"])
                 continue
 
             submission = submissions_by_code.get(pretalx_id)
             if not submission:
                 self.logger.warning(
-                    f"Skipping RT #{rt_ticket['id']}: Submission '{pretalx_id}' not found"
+                    "Skipping RT #%s: Submission '%s' not found",
+                    rt_ticket["id"],
+                    pretalx_id,
                 )
                 continue
 
@@ -247,11 +250,16 @@ class RTSync:
                 ticket = existing_tickets_by_submission[submission.id]
                 if ticket.rt_id == int(rt_ticket["id"]):
                     self.logger.debug(
-                        f"Skipping RT #{rt_ticket['id']}: Submission '{pretalx_id}' already linked."
+                        "Skipping RT #%s: Submission '%s' already linked.",
+                        rt_ticket["id"],
+                        pretalx_id,
                     )
                 else:
                     self.logger.warning(
-                        f"Skipping RT #{rt_ticket['id']}: Submission '{pretalx_id}' already linked to RT #{ticket.rt_id}."
+                        "Skipping RT #%s: Submission '%s' already linked to RT #%s.",
+                        rt_ticket["id"],
+                        pretalx_id,
+                        ticket.rt_id,
                     )
                 continue
 
@@ -262,26 +270,38 @@ class RTSync:
             if created:
                 new_tickets += 1
                 self.logger.info(
-                    f"Created RT #{rt_ticket['id']} for Submission '{submission.code}'"
+                    "Created RT #%s for Submission '%s'",
+                    rt_ticket["id"],
+                    submission.code,
                 )
             else:
                 updated_tickets += 1
                 self.logger.info(
-                    f"Updated RT #{rt_ticket['id']} with Submission '{submission.code}'"
+                    "Updated RT #%s with Submission '%s'",
+                    rt_ticket["id"],
+                    submission.code,
                 )
 
             self.push(ticket)
 
         self.logger.info(
-            f"Synced {total} tickets of queue '{queue_name}': {updated_tickets} updated, {new_tickets} new."
+            "Synced %s tickets of queue '%s': %s updated, %s new.",
+            total,
+            queue_name,
+            updated_tickets,
+            new_tickets,
         )
 
 
 @app.task(bind=True, name="pretalx_rt.ticket_pull_task")
 def ticket_pull_task(self, event_id: int, ticket_id: int):
-    RTSync(Event.objects.get(id=event_id)).pull(Ticket.objects.get(id=ticket_id))
+    event = Event.objects.get(id=event_id)
+    with scope(event=event):
+        RTSync(event).pull(Ticket.objects.get(id=ticket_id))
 
 
 @app.task(bind=True, name="pretalx_rt.ticket_push_task")
 def ticket_push_task(self, event_id: int, ticket_id: int):
-    RTSync(Event.objects.get(id=event_id)).push(Ticket.objects.get(id=ticket_id))
+    event = Event.objects.get(id=event_id)
+    with scope(event=event):
+        RTSync(event).push(Ticket.objects.get(id=ticket_id))
