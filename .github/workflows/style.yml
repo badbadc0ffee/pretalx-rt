@@ -4,101 +4,51 @@ on:
   push:
     branches: [ main ]
     paths-ignore:
-      - 'pretalx_zammad/locale/**'
-      - 'pretalx_zammad/static/**'
+      - 'pretalx_rt/locale/**'
+      - 'pretalx_rt/static/**'
   pull_request:
     branches: [ main ]
     paths-ignore:
-      - 'pretalx_zammad/locale/**'
-      - 'pretalx_zammad/static/**'
+      - 'pretalx_rt/locale/**'
+      - 'pretalx_rt/static/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
-  isort:
-    name: Include order checks
+  style:
+    name: Code style
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: install gettext
-        run: sudo apt install gettext
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version-file: ".github/workflows/python-version.txt"
-          cache: "pip"
-      - name: Install isort
-        run: pip3 install isort
-      - name: Run isort
-        run: isort -c .
-        working-directory: ./pretalx_rt
-  flake:
-    name: Style guide checks
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: install gettext
-        run: sudo apt install gettext
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
         with:
-          python-version-file: ".github/workflows/python-version.txt"
-          cache: "pip"
-      - name: Install Dependencies
-        run: pip3 install flake8 flake8-bugbear
-      - name: Run flake8
-        run: flake8 .
-        working-directory: .
-  black:
-    name: Code formatter checks
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: install gettext
-        run: sudo apt install gettext
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version-file: ".github/workflows/python-version.txt"
-          cache: "pip"
-      - name: Install Dependencies
-        run: pip3 install black
-      - name: Run black
-        run: black --check .
-        working-directory: ./pretalx_rt
-  djhtml:
-    name: HTML checks
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: install gettext
-        run: sudo apt install gettext
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version-file: ".github/workflows/python-version.txt"
-          cache: "pip"
-      - name: Install Dependencies
-        run: pip3 install djhtml
-      - name: Run docformatter
-        run: find -name "*.html" | xargs djhtml -c
-        working-directory: .
+          enable-cache: true
+      - uses: extractions/setup-just@v3
+      - name: Run linters
+        run: just fmt-check
   packaging:
-    name: Packaging
+    name: packaging
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version-file: ".github/workflows/python-version.txt"
-          cache: "pip"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
       - name: Install Dependencies
-        run: pip3 install twine check-manifest -Ue .
+        run: uv pip install --system twine check-manifest build -e .
       - name: Run check-manifest
         run: check-manifest .
-        working-directory: .
       - name: Build package
         run: python -m build
-        working-directory: .
       - name: Check package
         run: twine check dist/*
-        working-directory: .
