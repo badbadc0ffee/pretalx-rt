@@ -1,4 +1,5 @@
 import datetime as dt
+from unittest import mock
 
 import pytest
 from django.core import management
@@ -7,8 +8,13 @@ from django_scopes import scopes_disabled
 from pretalx.event.domain.event import initialise_event
 from pretalx.event.domain.plugins import enable_plugin
 from pretalx.event.models import Event, Organiser, Team
+from pretalx.mail.enums import QueuedMailStates
+from pretalx.mail.models import QueuedMail
 from pretalx.person.enums import EmailVerificationState
-from pretalx.person.models import User
+from pretalx.person.models import SpeakerProfile, User
+from pretalx.submission.models import Submission
+
+from pretalx_rt.models import EventSettings, Ticket
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -114,3 +120,74 @@ def user_token():
 @pytest.fixture
 def other_token():
     return "7-89-9f8e7d6c5b4a39281706f5e4d3c2b1a0"
+
+
+@pytest.fixture
+def event_settings(event, event_token):
+    return EventSettings.objects.create(
+        event=event,
+        base_url="https://rt.example.com/",
+        rest_auth_token=event_token,
+        queue="General",
+    )
+
+
+@pytest.fixture
+def speaker(event):
+    with scopes_disabled():
+        user = User.objects.create_user(
+            password="speakerpassw0rd",
+            email="jane@example.org",
+            name="Jane",
+            email_verification_state=EmailVerificationState.VERIFIED,
+        )
+        return SpeakerProfile.objects.create(user=user, event=event)
+
+
+@pytest.fixture
+def make_submission(event):
+    def make(title="My talk", speakers=()):
+        with scopes_disabled():
+            submission = Submission.objects.create(
+                event=event, title=title, submission_type=event.cfp.default_type
+            )
+            submission.speakers.add(*speakers)
+        return submission
+
+    return make
+
+
+@pytest.fixture
+def submission(make_submission, speaker):
+    return make_submission(speakers=[speaker])
+
+
+@pytest.fixture
+def ticket(event, submission):
+    return Ticket.objects.create(
+        event=event,
+        rt_id=5,
+        subject="My talk",
+        status="new",
+        queue="General",
+        submission=submission,
+    )
+
+
+@pytest.fixture
+def mail(event, speaker):
+    with scopes_disabled():
+        mail = QueuedMail.objects.create(
+            event=event,
+            subject="Hello",
+            text="Body text",
+            text_html="<p>Body text</p>",
+            state=QueuedMailStates.DRAFT,
+            locale="en",
+        )
+    recipients = [speaker.user]
+    if hasattr(QueuedMail, "to_users"):
+        mail.to_users.add(*recipients)
+    else:  # newer pretalx versions removed the field
+        mail.to_users = mock.Mock(all=lambda: recipients)
+    return mail
