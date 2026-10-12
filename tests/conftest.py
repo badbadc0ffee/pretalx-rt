@@ -1,5 +1,4 @@
 import datetime as dt
-from unittest import mock
 
 import pytest
 from django.core import management
@@ -185,9 +184,8 @@ def mail(event, speaker):
             state=QueuedMailStates.DRAFT,
             locale="en",
         )
-    recipients = [speaker.user]
-    if hasattr(QueuedMail, "to_users"):
-        mail.to_users.add(*recipients)
-    else:  # newer pretalx versions removed the field
-        mail.to_users = mock.Mock(all=lambda: recipients)
+    if hasattr(QueuedMail, "to_users"):  # pretalx up to 2026.2.1
+        mail.to_users.add(speaker.user)
+    else:
+        mail.to_speakers.add(speaker)
     return mail
