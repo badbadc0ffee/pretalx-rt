@@ -8,8 +8,24 @@ from pretalx.celery_app import app
 from pretalx.common.templatetags.rich_text import rich_text
 from pretalx.event.models import Event
 from pretalx.mail.enums import QueuedMailStates
+from pretalx.person.models import SpeakerProfile
 
 from .models import EventSettings, Ticket
+
+
+def name_and_email(person):
+    """Return name and email address of a user or a speaker profile.
+
+    Newer pretalx versions allow speaker profiles to have their own email
+    address, or no user account at all.
+    """
+    if isinstance(person, SpeakerProfile):
+        user = person.user
+        email = getattr(person, "effective_email", None) or (
+            user.email if user else None
+        )
+        return str(person.get_display_name()), email
+    return person.name, person.email
 
 
 class RTSync:
@@ -52,10 +68,7 @@ class RTSync:
             rt_id = self.rt.create_ticket(
                 queue=self.settings.queue,
                 subject=submission.title,
-                Requestor=self.requestors(
-                    speaker.user
-                    for speaker in submission.speakers.select_related("user")
-                ),
+                Requestor=self.requestors(submission.speakers.select_related("user")),
                 Status=self.settings.initial_status,
                 Owner="Nobody",
                 CustomFields={
@@ -79,7 +92,7 @@ class RTSync:
             rt_id = self.rt.create_ticket(
                 queue=self.settings.queue,
                 subject=mail.subject,
-                Requestor=self.requestors(mail.to_users.all()),
+                Requestor=self.mail_requestors(mail),
                 Status=self.settings.initial_status,
                 Owner="Nobody",
             )
@@ -100,9 +113,7 @@ class RTSync:
             mail.save(update_fields=["state"])
 
             self.rt.edit_ticket(
-                ticket.rt_id,
-                Requestor=self.requestors(mail.to_users.all()),
-                Subject=mail.subject,
+                ticket.rt_id, Requestor=self.mail_requestors(mail), Subject=mail.subject
             )
 
             attachments = [
@@ -158,8 +169,7 @@ class RTSync:
                 ticket.rt_id,
                 Subject=ticket.submission.title,
                 Requestor=self.requestors(
-                    speaker.user
-                    for speaker in ticket.submission.speakers.select_related("user")
+                    ticket.submission.speakers.select_related("user")
                 ),
                 CustomFields={
                     self.settings.custom_field_id: ticket.submission.code,
@@ -191,9 +201,26 @@ class RTSync:
         ticket.sync_timestamp = now()
         ticket.save()
 
-    def requestors(self, users):
-        """Format user information for RT requestors field."""
-        return [f"{user.name.replace('@', '(at)')} <{user.email}>" for user in users]
+    def requestors(self, people):
+        """Format users or speaker profiles for the RT requestors field.
+
+        People without an email address cannot be requestors and are left out.
+        """
+        requestors = []
+        for person in people:
+            name, email = name_and_email(person)
+            if email:
+                requestors.append(f"{name.replace('@', '(at)')} <{email}>")
+        return requestors
+
+    def mail_requestors(self, mail):
+        """Format everyone a mail is addressed to for the RT requestors field."""
+        if hasattr(type(mail), "to_users"):  # pretalx up to 2026.2.1
+            people = mail.to_users.all()
+        else:
+            people = mail.to_speakers.select_related("user")
+        addresses = [address.strip() for address in (mail.to or "").split(",")]
+        return self.requestors(people) + [address for address in addresses if address]
 
     @staticmethod
     def get_custom_field(rt_ticket, field_name):

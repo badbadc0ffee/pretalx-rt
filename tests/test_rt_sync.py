@@ -9,11 +9,17 @@ from pretalx.common.templatetags.rich_text import rich_text
 from pretalx.event.models import Event
 from pretalx.mail.enums import QueuedMailStates
 from pretalx.mail.models import QueuedMail
+from pretalx.person.models import SpeakerProfile
 
 from pretalx_rt.models import EventSettings, Ticket, UserSettings
 from pretalx_rt.rt_sync import RTSync
 
 LOGGER = "pretalx_rt.rt_sync"
+
+# Newer pretalx versions let speaker profiles have their own email address,
+# or no user account at all.
+SPEAKERS_HAVE_EMAIL = "email" in {f.name for f in SpeakerProfile._meta.get_fields()}
+SPEAKERS_CAN_LACK_USER = SpeakerProfile._meta.get_field("user").null
 
 
 @pytest.fixture(autouse=True)
@@ -202,6 +208,65 @@ def test_requestors(sync, speaker):
 def test_requestors_replace_at_sign_in_names(sync):
     user = SimpleNamespace(name="Jane@Home", email="jane@example.org")
     assert sync.requestors([user]) == ["Jane(at)Home <jane@example.org>"]
+
+
+def old_style_mail(users, to=""):
+    """A mail as in pretalx up to 2026.2.1, addressed to users."""
+    mail_class = type(
+        "OldStyleMail", (), {"to": to, "to_users": SimpleNamespace(all=lambda: users)}
+    )
+    return mail_class()
+
+
+@pytest.mark.django_db
+def test_mail_requestors_include_plain_addresses(sync, mail):
+    mail.to = "a@example.org, b@example.org,"
+    mail.save()
+    assert sync.mail_requestors(mail) == [
+        "Jane <jane@example.org>",
+        "a@example.org",
+        "b@example.org",
+    ]
+
+
+@pytest.mark.django_db
+def test_mail_requestors_for_mails_addressed_to_users(sync):
+    user = SimpleNamespace(name="Jane", email="jane@example.org")
+    mail = old_style_mail([user], to="a@example.org")
+    assert sync.mail_requestors(mail) == ["Jane <jane@example.org>", "a@example.org"]
+
+
+@pytest.mark.django_db
+@pytest.mark.skipif(not SPEAKERS_HAVE_EMAIL, reason="speakers have no own email")
+def test_requestors_use_the_email_of_the_speaker_profile(sync, speaker):
+    speaker.email = "contact@example.org"
+    speaker.save()
+    assert sync.requestors([speaker]) == ["Jane <contact@example.org>"]
+
+
+@pytest.mark.django_db
+@pytest.mark.skipif(not SPEAKERS_CAN_LACK_USER, reason="speakers always have a user")
+def test_speakers_without_account_are_requestors_if_they_have_an_email(
+    sync, rt, event, make_submission
+):
+    with scopes_disabled():
+        managed = SpeakerProfile.objects.create(
+            event=event, user=None, name="Managed Speaker", email="managed@example.org"
+        )
+        unreachable = SpeakerProfile.objects.create(
+            event=event, user=None, name="No Email"
+        )
+    assert sync.requestors([managed, unreachable]) == [
+        "Managed Speaker <managed@example.org>"
+    ]
+
+    rt.create_ticket.return_value = 42
+    submission = make_submission("Managed talk", speakers=[managed, unreachable])
+    with mock.patch.object(RTSync, "pull"):
+        sync.create_submission_ticket(submission)
+    assert rt.create_ticket.call_args.kwargs["Requestor"] == [
+        "Managed Speaker <managed@example.org>"
+    ]
 
 
 @pytest.mark.django_db
